@@ -58,6 +58,7 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList $
     -- launch a terminal
     [ ((modm .|. shiftMask, xK_Return), spawn $ XMonad.terminal conf)
 
+    , ((modm,               xK_b     ), spawn "google-chrome-stable")
     -- launch dmenu
     , ((modm,               xK_p     ), spawn "dmenu_run")
 
@@ -69,8 +70,6 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList $
 
     -- close focused window
     , ((modm .|. shiftMask, xK_c     ), kill)
-    
-    , ((modm,               xK_0     ), spawn "gnome-clocks")
 
      -- launch spotify
     , ((modm .|. shiftMask, xK_m     ), spawn "spotify")
