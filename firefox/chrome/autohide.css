@@ -1,0 +1,31 @@
+/* toolbar slides up out of view; move the mouse to the top edge to bring it back.
+ * it also stays visible while typing in the url bar or while a menu is open. */
+
+:root { --uc-toolbox-height: 40px; }
+
+#navigator-toolbox {
+  position: fixed !important;
+  z-index: 10 !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(calc(2px - var(--uc-toolbox-height)));
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease !important;
+}
+
+#navigator-toolbox:hover,
+#navigator-toolbox:focus-within,
+#navigator-toolbox:has([open]),
+#navigator-toolbox:has([panelopen]),
+#navigator-toolbox:has(#urlbar[open]),
+:root[customizing] #navigator-toolbox {
+  transform: none;
+  opacity: 1;
+}
+
+/* the page uses the full window height */
+#browser { margin-top: 0 !important; }
+
+/* never auto-hide in real fullscreen (videos manage that themselves) */
+:root[inFullscreen] #navigator-toolbox { transform: translateY(-100%); }

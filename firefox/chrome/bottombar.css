@@ -1,0 +1,26 @@
+/* toolbar (url bar + tabs) lives at the bottom of the window, always visible.
+ * the window is a column [toolbox, browser]; swapping their order puts the bar
+ * under the page instead of floating over it. */
+
+#navigator-toolbox { order: 2 !important; }
+#browser           { order: 1 !important; }
+
+/* url suggestions open upwards instead of off the bottom of the screen.
+ * firefox 157 anchors the popover below the url bar (position-area: block-end);
+ * flip it above, and drop the "joined" background that assumes it sits below. */
+#urlbar > .urlbarView:popover-open {
+  position-area: block-start center !important;
+  margin-block: 0 6px !important;
+}
+#urlbar[popover-open] > .urlbar-background {
+  inset: 0 !important;
+  clip-path: none !important;
+}
+#urlbar > .urlbarView > .urlbarView-background {
+  inset: 0 !important;
+  clip-path: none !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--gb-bg1) !important;
+  background-color: var(--gb-bg0h) !important;
+  box-shadow: none !important;
+}

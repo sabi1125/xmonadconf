@@ -1,0 +1,23 @@
+-- right island: system status
+Config
+  { font            = "JetBrainsMono Nerd Font Bold 10"
+  , additionalFonts = [ "JetBrainsMono Nerd Font 10" ]
+  , bgColor         = "#1d2021"
+  , fgColor         = "#a89984"
+  , alpha           = 200
+  , position        = Static { xpos = 1472, ypos = 8, width = 440, height = 30 }
+  , border          = NoBorder
+  , lowerOnStart    = True
+  , allDesktops     = True
+  , persistent      = True
+  , commands =
+      [ Run Cpu ["-t", "<total>%", "-p", "2"] 20
+      , Run Memory ["-t", "<usedratio>%", "-p", "2"] 20
+      , Run Com "/home/sabir/.config/xmonad/scripts/bar/net.sh" [] "net" 50
+      , Run Com "/home/sabir/.config/xmonad/scripts/bar/vol.sh" [] "vol" 5
+      , Run Com "/home/sabir/.config/xmonad/scripts/bar/dnd.sh" [] "dnd" 10
+      ]
+  , sepChar  = "%"
+  , alignSep = "}{"
+  , template = "}{<fc=#665c54>󰍛</fc> <fn=1>%cpu%</fn>   <fc=#665c54>󰘚</fc> <fn=1>%memory%</fn>   <fn=1>%net%</fn>   <action=`pamixer -t` button=1><action=`pamixer -i 5` button=4><action=`pamixer -d 5` button=5>%vol%</action></action></action>   <action=`dunstctl set-paused toggle`>%dnd%</action>   <action=`xdotool key super+shift+e`><fc=#d65d0e>󰐥</fc></action>  "
+  }

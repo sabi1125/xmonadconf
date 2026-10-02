@@ -1,0 +1,16 @@
+-- left island: workspaces + layout
+Config
+  { font         = "JetBrainsMono Nerd Font Bold 10"
+  , bgColor      = "#1d2021"
+  , fgColor      = "#a89984"
+  , alpha        = 200
+  , position     = Static { xpos = 8, ypos = 8, width = 224, height = 30 }
+  , border       = NoBorder
+  , lowerOnStart = True
+  , allDesktops  = True
+  , persistent   = True
+  , commands     = [ Run UnsafeXMonadLog ]
+  , sepChar      = "%"
+  , alignSep     = "}{"
+  , template     = "}   %UnsafeXMonadLog%   {"
+  }

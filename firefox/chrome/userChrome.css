@@ -1,0 +1,21 @@
+/* ~/.config/xmonad/firefox/chrome/userChrome.css
+ * gruvbox, one-line firefox
+ *
+ * each piece lives in its own file so it can be swapped out:
+ *   gruvbox.css   colors + fonts
+ *   oneline.css   url bar and tabs on one row
+ *   urlbar.css    flat url bar with a › prompt
+ *   icons.css     thin line icons (icons/*.svg)
+ *   tooltips.css  flat gruvbox tooltips
+ *   bottombar.css toolbar at the bottom of the window
+ *   frost.css     translucent, blurred bar and window
+ *   (autohide.css: old top auto-hide, kept but not loaded)
+ */
+
+@import "gruvbox.css";
+@import "oneline.css";
+@import "urlbar.css";
+@import "icons.css";
+@import "tooltips.css";
+@import "bottombar.css";
+@import "frost.css";

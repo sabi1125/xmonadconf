@@ -1,0 +1,50 @@
+/* thin line icons (chrome/icons/*.svg) instead of firefox's stock ones */
+
+:root {
+  --gb-icon: var(--gb-fg4);
+}
+
+#back-button,
+#forward-button,
+#reload-button,
+#stop-button,
+#unified-extensions-button,
+#PanelUI-menu-button,
+#downloads-button,
+#tabs-newtab-button,
+#new-tab-button,
+.tab-close-button {
+  -moz-context-properties: fill, fill-opacity !important;
+  fill: var(--gb-icon) !important;
+}
+
+#back-button,
+#back-button .toolbarbutton-icon            { list-style-image: url("icons/back.svg") !important; }
+#forward-button,
+#forward-button .toolbarbutton-icon         { list-style-image: url("icons/forward.svg") !important; }
+#reload-button,
+#reload-button .toolbarbutton-icon          { list-style-image: url("icons/reload.svg") !important; }
+#stop-button,
+#stop-button .toolbarbutton-icon            { list-style-image: url("icons/stop.svg") !important; }
+#unified-extensions-button,
+#unified-extensions-button .toolbarbutton-icon { list-style-image: url("icons/extensions.svg") !important; }
+#PanelUI-menu-button,
+#PanelUI-menu-button .toolbarbutton-icon    { list-style-image: url("icons/menu.svg") !important; }
+#tabs-newtab-button,
+#tabs-newtab-button .toolbarbutton-icon,
+#new-tab-button,
+#new-tab-button .toolbarbutton-icon         { list-style-image: url("icons/plus.svg") !important; }
+.tab-close-button,
+.tab-close-button .toolbarbutton-icon       { list-style-image: url("icons/close.svg") !important; }
+#downloads-button .toolbarbutton-icon       { list-style-image: url("icons/downloads.svg") !important; }
+
+/* no animated reload/stop swap glyphs, just our icons */
+#reload-button > .toolbarbutton-animatable-box,
+#stop-button > .toolbarbutton-animatable-box { display: none !important; }
+
+/* hover: brighter icon, no box */
+#nav-bar toolbarbutton:not([disabled]):hover,
+#TabsToolbar toolbarbutton:not([disabled]):hover {
+  --gb-icon: var(--gb-fg);
+}
+#nav-bar toolbarbutton[disabled] { opacity: 0.35 !important; }

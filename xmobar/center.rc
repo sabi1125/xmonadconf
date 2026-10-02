@@ -1,0 +1,21 @@
+-- center island: music bars + now playing (or date) + clock, centered as one group
+Config
+  { font            = "JetBrainsMono Nerd Font Bold 10"
+  , additionalFonts = [ "JetBrainsMono Nerd Font 10" ]
+  , bgColor         = "#1d2021"
+  , fgColor         = "#a89984"
+  , alpha           = 200
+  , position        = Static { xpos = 680, ypos = 8, width = 560, height = 30 }
+  , border          = NoBorder
+  , lowerOnStart    = True
+  , allDesktops     = True
+  , persistent      = True
+  , commands =
+      [ Run CommandReader "/home/sabir/.config/xmonad/scripts/bar/cava.sh" "cava"
+      , Run Com "/home/sabir/.config/xmonad/scripts/bar/media.sh" [] "media" 10
+      , Run Date "%H:%M" "time" 50
+      ]
+  , sepChar  = "%"
+  , alignSep = "}{"
+  , template = "}%cava%     <fn=1>%media%</fn><action=`/home/sabir/.config/xmonad/scripts/bar/calendar.sh`><fc=#d79921>󰥔 %time%</fc></action>{"
+  }

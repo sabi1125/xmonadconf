@@ -1,0 +1,54 @@
+# ~/.config/xmonad/config/dunstrc
+
+[global]
+    monitor = 0
+    follow = mouse
+    width = 320
+    height = (0, 140)
+    origin = top-right
+    offset = (16, 42)
+    notification_limit = 4
+    gap_size = 6
+
+    padding = 12
+    horizontal_padding = 14
+    frame_width = 2
+    frame_color = "#3c3836"
+    separator_color = frame
+    corner_radius = 8
+
+    font = JetBrainsMono Nerd Font 10
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    ellipsize = end
+    word_wrap = yes
+    icon_position = left
+    max_icon_size = 48
+    min_icon_size = 0
+
+    idle_threshold = 120
+    show_age_threshold = 60
+    sticky_history = yes
+    history_length = 20
+
+    mouse_left_click = do_action, close_current
+    mouse_middle_click = close_all
+    mouse_right_click = close_current
+
+[urgency_low]
+    background = "#1d2021"
+    foreground = "#a89984"
+    timeout = 4
+
+[urgency_normal]
+    background = "#1d2021"
+    foreground = "#ebdbb2"
+    timeout = 6
+
+[urgency_critical]
+    background = "#1d2021"
+    foreground = "#ebdbb2"
+    frame_color = "#cc241d"
+    timeout = 0

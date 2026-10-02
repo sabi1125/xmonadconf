@@ -1,0 +1,171 @@
+/* gruvbox colors + fonts for the firefox interface */
+
+:root {
+  --gb-bg0h:   #1d2021;
+  --gb-bg0:    #282828;
+  --gb-bg1:    #3c3836;
+  --gb-bg2:    #504945;
+  --gb-fg:     #ebdbb2;
+  --gb-fg4:    #a89984;
+  --gb-gray:   #7c6f64;
+  --gb-yellow: #d79921;
+  --gb-font:   "Adwaita Sans", "Noto Sans", sans-serif;
+
+  /* toolbars */
+  --toolbar-bgcolor:  var(--gb-bg0h) !important;
+  --toolbar-color:    var(--gb-fg)   !important;
+  --lwt-accent-color: var(--gb-bg0h) !important;
+  --lwt-text-color:   var(--gb-fg)   !important;
+  --toolbarbutton-icon-fill:         var(--gb-fg4) !important;
+  --toolbarbutton-hover-background:  var(--gb-bg1) !important;
+  --toolbarbutton-active-background: var(--gb-bg2) !important;
+  --toolbarbutton-border-radius:     6px !important;
+  --chrome-content-separator-color:  transparent !important;
+
+  /* url bar */
+  --toolbar-field-background-color:       var(--gb-bg0) !important;
+  --toolbar-field-color:                  var(--gb-fg)  !important;
+  --toolbar-field-focus-background-color: var(--gb-bg0) !important;
+  --toolbar-field-focus-color:            var(--gb-fg)  !important;
+  --toolbar-field-focus-border-color:     var(--gb-bg2) !important;
+  --toolbar-field-border-color:           transparent   !important;
+  --urlbarView-highlight-background:      var(--gb-bg1) !important;
+  --urlbarView-highlight-color:           var(--gb-fg)  !important;
+  --urlbar-box-bgcolor:                   transparent   !important;
+  --urlbar-box-hover-bgcolor:             var(--gb-bg1) !important;
+  --urlbar-box-active-bgcolor:            var(--gb-bg2) !important;
+
+  /* tabs */
+  --tab-selected-bgcolor:  transparent !important;
+  --tab-selected-textcolor: var(--gb-fg) !important;
+  --tab-border-radius:     4px !important;
+  --tab-hover-background-color: transparent !important;
+
+  /* panels, popups, menus */
+  --arrowpanel-background:   var(--gb-bg0h) !important;
+  --arrowpanel-color:        var(--gb-fg)   !important;
+  --arrowpanel-border-color: var(--gb-bg1)  !important;
+  --arrowpanel-border-radius: 8px !important;
+  --panel-separator-color:   var(--gb-bg1)  !important;
+  --button-hover-bgcolor:    var(--gb-bg1)  !important;
+  --focus-outline-color:     var(--gb-yellow) !important;
+  --color-accent-primary:    var(--gb-yellow) !important;
+}
+
+/* fonts */
+#navigator-toolbox,
+#urlbar-input,
+.urlbarView,
+.tab-label,
+menupopup,
+panel {
+  font-family: var(--gb-font) !important;
+}
+.tab-label { font-size: 12px !important; }
+#urlbar-input { font-size: 13px !important; }
+menupopup, panel { font-size: 13px !important; }
+
+/* backgrounds */
+#navigator-toolbox,
+#nav-bar,
+#TabsToolbar,
+#titlebar {
+  background: var(--gb-bg0h) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* url bar: square, no border, yellow caret */
+#urlbar {
+  --urlbar-border-radius: 0px !important;
+  /* suggestion rows: square, gruvbox highlight instead of the blue/grey pill */
+  --urlbarview-border-radius: 0px !important;
+  --urlbarview-background-color-selected: var(--gb-bg1) !important;
+  --urlbarview-text-color-selected: var(--gb-fg) !important;
+  --urlbarview-background-color-hover: var(--gb-bg0) !important;
+  --urlbarView-result-button-selected-background-color: var(--gb-bg2) !important;
+  --urlbarView-result-button-selected-color: var(--gb-fg) !important;
+}
+#urlbar .urlbarView {
+  --urlbarview-border-radius: 0px !important;
+  --urlbarView-row-border-radius: 0px !important;
+}
+#urlbar .urlbarView-row,
+#urlbar .urlbarView-row-inner,
+#urlbar .urlbarView-action-btn,
+#urlbar .urlbarView-button {
+  border-radius: 0 !important;
+}
+#urlbar .urlbarView-row[selected] { box-shadow: inset 2px 0 0 var(--gb-yellow) !important; }
+#urlbar,
+.urlbar-background,
+.urlbar-input-container,
+#urlbar .urlbarView,
+#urlbar-searchmode-switcher,
+#urlbar-search-mode-indicator {
+  border-radius: 0 !important;
+}
+.urlbar-background {
+  border: none !important;
+  box-shadow: none !important;
+}
+#urlbar[focused] .urlbar-background {
+  outline: 1px solid var(--gb-bg2) !important;
+  outline-offset: 0 !important;
+}
+/* the search engine button inside the url bar, square too */
+.searchmode-switcher,
+.searchmode-switcher::part(button) {
+  border-radius: 0 !important;
+  --button-border-radius: 0 !important;
+}
+
+#urlbar-input { caret-color: var(--gb-yellow) !important; }
+#urlbar-input::selection { background: var(--gb-bg2) !important; color: var(--gb-fg) !important; }
+
+/* tabs: soft, the selected one gets a small yellow underline */
+.tab-background {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.tabbrowser-tab:not([selected]) .tab-label { color: var(--gb-gray) !important; }
+.tabbrowser-tab:not([selected]):hover .tab-label { color: var(--gb-fg4) !important; }
+.tabbrowser-tab[selected] .tab-label { color: var(--gb-fg) !important; }
+.tabbrowser-tab[selected] .tab-background {
+  background: rgba(80, 73, 69, 0.45) !important;
+  border: none !important;
+}
+.tabbrowser-tab:not([selected]):hover .tab-background {
+  background: rgba(60, 56, 54, 0.35) !important;
+}
+.tab-close-button { opacity: 0.6; }
+.tabbrowser-tab:not(:hover) .tab-close-button { visibility: collapse !important; }
+
+/* menus */
+menupopup {
+  --panel-background: var(--gb-bg0h) !important;
+  --panel-color: var(--gb-fg) !important;
+  --panel-border-color: var(--gb-bg1) !important;
+  --panel-border-radius: 8px !important;
+}
+menupopup menuitem[_moz-menuactive],
+menupopup menu[_moz-menuactive] {
+  background-color: var(--gb-bg1) !important;
+  color: var(--gb-fg) !important;
+}
+
+/* less clutter */
+#alltabs-button,
+#firefox-view-button,
+#ipprotection-button,
+#fxa-toolbar-menu-button,
+#tracking-protection-icon-container,
+#identity-permission-box,
+#pageActionButton,
+#reader-mode-button,
+#star-button-box,
+.titlebar-spacer,
+.titlebar-buttonbox-container {
+  display: none !important;
+}

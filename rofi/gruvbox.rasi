@@ -1,0 +1,93 @@
+/* ~/.config/xmonad/rofi/gruvbox.rasi */
+
+configuration {
+    show-icons:          true;
+    icon-theme:          "Wire";
+    drun-display-format: "{name}";
+    window-format:       "{c}  {t}";
+    disable-history:     false;
+
+    /* traverse without typing: alt+tab / alt+shift+tab, or alt+j / alt+k */
+    kb-row-down:         "Down,Control+n,Alt+Tab,Alt+j";
+    kb-row-up:           "Up,Control+p,Alt+ISO_Left_Tab,Alt+Shift+Tab,Alt+k";
+}
+
+* {
+    bg:      #1d2021;
+    bg-alt:  #3c3836;
+    fg:      #ebdbb2;
+    fg-dim:  #7c6f64;
+    accent:  #d79921;
+
+    background-color: transparent;
+    text-color:       @fg;
+    font:             "JetBrainsMono Nerd Font 10";
+}
+
+window {
+    width:            460px;
+    location:         center;
+    background-color: @bg;
+    border:           2px;
+    border-color:     @bg-alt;
+    border-radius:    8px;
+    padding:          14px;
+}
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing:  18px;
+}
+
+inputbar {
+    children: [ textbox-prompt, entry ];
+    spacing:  12px;
+}
+
+textbox-prompt {
+    expand:     false;
+    str:        "›";
+    text-color: @accent;
+}
+
+entry {
+    placeholder:       "search";
+    placeholder-color: @fg-dim;
+    cursor:            text;
+}
+
+listview {
+    lines:        7;
+    columns:      1;
+    fixed-height: true;
+    scrollbar:    false;
+    spacing:      4px;
+}
+
+element {
+    padding:       7px 12px;
+    border-radius: 6px;
+    spacing:       10px;
+}
+
+element-icon {
+    size:             20px;
+    vertical-align:   0.5;
+    background-color: transparent;
+}
+
+element normal.normal,
+element alternate.normal {
+    text-color: @fg-dim;
+}
+
+element selected.normal {
+    background-color: @bg-alt;
+    text-color:       @accent;
+}
+
+element-text {
+    text-color:       inherit;
+    highlight:        bold #fabd2f;
+    vertical-align:   0.5;
+}

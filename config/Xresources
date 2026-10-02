@@ -1,0 +1,4 @@
+! ~/.config/xmonad/config/Xresources  (merged by xmonad at startup)
+
+Xcursor.theme: Gruvbox-Cursor
+Xcursor.size:  24

@@ -1,0 +1,36 @@
+/* frosted glass: the bar blurs the page behind it; the window itself is
+ * see-through so the new tab page shows the (picom-blurred) wallpaper.
+ * websites stay solid (see the safety rule in userContent.css). */
+
+:root {
+  --gb-glass: rgba(29, 32, 33, 0.85);
+}
+
+/* window layers under the page: transparent */
+:root,
+#browser,
+#tabbrowser-tabbox,
+#tabbrowser-tabpanels,
+.browserContainer,
+.browserStack,
+#appcontent {
+  background-color: transparent !important;
+}
+
+/* the bar: translucent + blurred */
+#navigator-toolbox {
+  background-color: var(--gb-glass) !important;
+  backdrop-filter: blur(14px) saturate(120%) !important;
+  border-top: 1px solid rgba(80, 73, 69, 0.45) !important;
+}
+#nav-bar,
+#TabsToolbar,
+#navigator-toolbox > toolbar {
+  background: transparent !important;
+}
+
+/* url suggestions panel: same glass */
+#urlbar > .urlbarView > .urlbarView-background {
+  background-color: rgba(29, 32, 33, 0.90) !important;
+  backdrop-filter: blur(16px) !important;
+}

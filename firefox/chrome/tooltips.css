@@ -1,0 +1,43 @@
+/* flat gruvbox tooltips: browser buttons, tabs and web page title tooltips */
+
+tooltip,
+#tabbrowser-tab-tooltip,
+#remoteBrowserTooltip,
+#back-button-tooltip,
+#forward-button-tooltip {
+  appearance: none !important;
+  --panel-background: #1d2021 !important;
+  --panel-color: #ebdbb2 !important;
+  --panel-border-color: #3c3836 !important;
+  --panel-border-radius: 4px !important;
+  --panel-padding: 0 !important;
+  background-color: #1d2021 !important;
+  color: #ebdbb2 !important;
+  border: 1px solid #3c3836 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  padding: 5px 9px !important;
+  margin: 0 !important;
+  font: 12px "Adwaita Sans", "Noto Sans", sans-serif !important;
+}
+
+tooltip description,
+tooltip label {
+  color: #ebdbb2 !important;
+  margin: 0 !important;
+}
+
+/* secondary line (e.g. the url under a tab title) */
+tooltip .tooltip-label + .tooltip-label,
+#back-button-tooltip-description,
+#forward-button-tooltip-description {
+  color: #a89984 !important;
+}
+
+/* in case the big tab hover card is ever turned back on */
+#tab-preview-panel {
+  --panel-background: #1d2021 !important;
+  --panel-color: #ebdbb2 !important;
+  --panel-border-color: #3c3836 !important;
+  --panel-border-radius: 4px !important;
+}

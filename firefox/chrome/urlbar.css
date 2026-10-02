@@ -1,0 +1,88 @@
+/* url bar: flat, rectangular, a yellow "›" prompt like rofi, thin accent when focused */
+
+#urlbar {
+  --urlbar-height: 30px !important;
+  --urlbar-min-height: 30px !important;
+}
+
+/* flat field, no border or outline ring */
+#urlbar .urlbar-background,
+#urlbar[focused] .urlbar-background,
+#urlbar[popover-open] .urlbar-background {
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* no focus ring around the input either */
+#urlbar .urlbar-input-container,
+#urlbar[focused] .urlbar-input-container {
+  outline: none !important;
+  border: none !important;
+}
+
+/* focused: a thin yellow edge on the left instead of a ring */
+#urlbar[focused] .urlbar-background {
+  box-shadow: inset 2px 0 0 var(--gb-yellow) !important;
+}
+
+/* the prompt */
+#urlbar .urlbar-input-container {
+  padding-inline: 12px 10px !important;
+}
+#urlbar .urlbar-input-container::before {
+  content: "\203A";
+  color: var(--gb-yellow);
+  font: 600 16px var(--gb-font);
+  margin-inline-end: 10px;
+  align-self: center;
+  opacity: 0.55;
+}
+#urlbar[focused] .urlbar-input-container::before { opacity: 1; }
+
+/* text */
+#urlbar-input,
+#urlbar .urlbar-input {
+  color: var(--gb-fg) !important;
+  font-size: 13px !important;
+  letter-spacing: 0.2px !important;
+}
+#urlbar-input::selection,
+#urlbar .urlbar-input::selection {
+  background-color: var(--gb-bg2) !important;
+  color: var(--gb-fg) !important;
+}
+#urlbar-input::placeholder,
+#urlbar .urlbar-input::placeholder {
+  color: var(--gb-gray) !important;
+  opacity: 1 !important;
+}
+
+/* clutter: only show the search engine button while typing */
+#urlbar:not([usertyping]) .searchmode-switcher,
+#urlbar .urlbar-go-button,
+#urlbar #urlbar-go-button,
+#tracking-protection-icon-container,
+#identity-permission-box,
+#notification-popup-box {
+  display: none !important;
+}
+#urlbar .searchmode-switcher,
+#urlbar .searchmode-switcher::part(button) {
+  background: transparent !important;
+  --button-background-color: transparent !important;
+  --button-background-color-muted: transparent !important;
+  --button-background-color-muted-hover: var(--gb-bg1) !important;
+  --button-background-color-muted-active: var(--gb-bg2) !important;
+  --button-background-color-hover: var(--gb-bg1) !important;
+  margin-inline-end: 6px !important;
+}
+
+/* site security icon (shield/lock): kept, but small and quiet */
+#trust-icon-container {
+  background: transparent !important;
+  margin-inline-end: 6px !important;
+}
+#trust-icon { opacity: 0.45; }
+#trust-icon-container:hover #trust-icon { opacity: 0.9; }

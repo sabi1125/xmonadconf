@@ -1,0 +1,25 @@
+/* ~/.config/xmonad/firefox/chrome/userContent.css
+ * gruvbox new tab page + dark internal pages */
+
+/* rotating quotes + facts, generated from ../newtab/quotes.txt */
+@import "newtab.css";
+
+/* websites stay solid: pages that don't paint a background of their own get
+ * the normal page colour instead of showing the desktop through them */
+@-moz-document regexp("(https?|file|ftp|data|view-source|moz-extension):.*") {
+  html:root { background-color: Canvas; }  /* html only: not svg icons/images */
+}
+
+@-moz-document url("about:newtab"), url("about:home"), url("about:blank") {
+  :root, body {
+    --newtab-background-color: #1d2021 !important;
+    --newtab-background-color-secondary: #282828 !important;
+    --newtab-text-primary-color: #ebdbb2 !important;
+    --newtab-text-secondary-color: #a89984 !important;
+    --newtab-element-hover-color: #3c3836 !important;
+    --newtab-primary-action-background: #d79921 !important;
+    color: #ebdbb2 !important;
+  }
+  :root { background-color: rgba(29, 32, 33, 0.88) !important; }
+  body  { background-color: transparent !important; }
+}

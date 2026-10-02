@@ -1,0 +1,51 @@
+/* url bar and tabs share one row: [ nav + url bar ][ tabs ............ ]
+ * written for firefox 157, where #TabsToolbar and #nav-bar sit directly
+ * inside #navigator-toolbox (no #titlebar wrapper). */
+
+#navigator-toolbox {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+
+#nav-bar {
+  order: 1 !important;
+  width: 40vw !important;
+  min-width: 380px !important;
+  flex: none !important;
+}
+
+#TabsToolbar {
+  order: 2 !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+
+/* menu bar (alt), bookmarks, notifications go on their own rows below */
+#toolbar-menubar,
+#PersonalToolbar,
+#notifications-toolbar {
+  order: 3 !important;
+  width: 100% !important;
+}
+#toolbar-menubar[autohide="true"][inactive] { display: none !important; }
+
+/* url bar takes all the room the nav-bar has */
+#nav-bar toolbarspring { display: none !important; }
+#urlbar-container {
+  min-width: 0 !important;
+  width: auto !important;
+  flex: 1 1 auto !important;
+}
+
+/* tidy heights so both halves line up */
+#TabsToolbar,
+#nav-bar {
+  --tab-min-height: 30px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding-block: 0 !important;
+}
+#tabbrowser-tabs { min-height: 40px !important; }
+#TabsToolbar toolbarspring { display: none !important; }
