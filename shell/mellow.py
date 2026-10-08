@@ -114,6 +114,8 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .clock {{ font-weight: bold; font-size: 13px; }}
 .barbtn {{ min-height: 30px; min-width: 30px; }}
 .dot {{ color: {ACCENT}; font-size: 8px; }}
+.ime {{ font-weight: bold; font-size: 11px; color: {DIM}; }}
+.ime.ja {{ color: #fabd2f; font-size: 15px; }}
 
 /* panels */
 .card {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
@@ -1134,12 +1136,11 @@ noise_reduction = 60
 
 
 class ArtProgress(Art):
-    """round album art inside an open ring (70% of a circle, gap at the bottom)
-    that fills as the song plays, as a gentle wave like the media page's bar.
-    click the ring to seek"""
+    """round album art inside a ring that fills as the song plays, as a gentle
+    wave like the media page's bar. click the ring to seek"""
 
-    SWEEP = 0.7 * 2 * math.pi
-    START = math.pi / 2 + (2 * math.pi - SWEEP) / 2  # bottom-left end of the ring
+    SWEEP = 2 * math.pi  # the whole way round; less leaves a gap at the bottom
+    START = math.pi / 2 + (2 * math.pi - SWEEP) / 2  # where the ring begins
 
     def __init__(self, size, art, on_seek):
         super().__init__(art)
@@ -2155,7 +2156,11 @@ class LeftBar(Strip):
         bell = button(self.bell, toggle_sidebar, "barbtn", tooltip="notifications")
         power = button("\U000F0425", toggle_sidebar, "barbtn", tooltip="session")
 
-        for w in reversed([clock, box(True, 0, self.net), vol, bell, power]):
+        # input method (fcitx5): EN, or あ while typing japanese. click to switch
+        self.ime = label("EN", "ime")
+        ime = button(self.ime, lambda: spawn("fcitx5-remote -t"), "barbtn", tooltip="input method (ctrl+space)")
+
+        for w in reversed([clock, ime, box(True, 0, self.net), vol, bell, power]):
             w.set_halign(Gtk.Align.CENTER)
             col.pack_end(w, False, False, 0)
         clock.set_margin_bottom(10)
@@ -2166,6 +2171,9 @@ class LeftBar(Strip):
         self._clock()
         every(10, self._net)
         every(4, self._notifications)
+        # fcitx5-remote: 2 = japanese, 1 = english, 0 = no text field; nothing = not running
+        follow("while :; do fcitx5-remote 2>/dev/null || echo; sleep 0.3; done", self._on_ime)
+        self._ime_state = None
         self._volume()
 
     def switch(self, name):
@@ -2207,6 +2215,15 @@ class LeftBar(Strip):
                 icon = "\U000F05A9" if os.path.isdir(f"/sys/class/net/{dev}/wireless") else "\U000F0200"
                 break
         self.net.set_text(icon)
+
+    def _on_ime(self, state):
+        if state == self._ime_state:
+            return
+        self._ime_state = state
+        ja = state == "2"
+        self.ime.set_text("あ" if ja else "EN" if state in ("0", "1") else "--")
+        ctx = self.ime.get_style_context()
+        (ctx.add_class if ja else ctx.remove_class)("ja")
 
     def _notifications(self):
         in_thread(lambda: run("dunstctl count history"), self._bell)
