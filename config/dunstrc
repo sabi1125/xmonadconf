@@ -13,7 +13,7 @@
     padding = 12
     horizontal_padding = 14
     frame_width = 2
-    frame_color = "#2c2c2e"
+    frame_color = "#282727"
     separator_color = frame
     corner_radius = 8
 
@@ -38,17 +38,17 @@
     mouse_right_click = close_current
 
 [urgency_low]
-    background = "#141416"
-    foreground = "#98989d"
+    background = "#12120f"
+    foreground = "#a6a69c"
     timeout = 4
 
 [urgency_normal]
-    background = "#141416"
-    foreground = "#f2f2f7"
+    background = "#12120f"
+    foreground = "#c5c9c5"
     timeout = 6
 
 [urgency_critical]
-    background = "#141416"
-    foreground = "#f2f2f7"
-    frame_color = "#ff453a"
+    background = "#12120f"
+    foreground = "#c5c9c5"
+    frame_color = "#c4746e"
     timeout = 0

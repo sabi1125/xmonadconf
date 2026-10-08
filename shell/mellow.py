@@ -64,15 +64,15 @@ PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
 
-# macOS Tahoe dark (MacTahoe-Dark), to match the rest of the rice
-FRAME = "#141416"
-CARD = "#1f1f22"
-CARD_HI = "#2c2c30"
-FG = "#f2f2f7"
-DIM = "#98989d"
-FAINT = "#48484a"
-ACCENT = "#d6cfbf"
-RED = "#ff453a"
+# kanagawa dragon, to match the rest of the rice
+FRAME = "#12120f"
+CARD = "#1d1c19"
+CARD_HI = "#282727"
+FG = "#c5c9c5"
+DIM = "#a6a69c"
+FAINT = "#625e5a"
+ACCENT = "#c4b28a"
+RED = "#c4746e"
 
 WORKSPACES = ["1", "2", "3", "4", "5"]  # xmonad.hs myWorkspaces
 WEATHER_URL = "https://wttr.in/?format=j1"  # location from your IP
@@ -132,7 +132,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 
 .play {{ background: {FG}; border-radius: 99px; min-width: 52px; min-height: 30px; }}
 .play label {{ color: {FRAME}; }}
-.play:hover {{ background: {DIM}; }}
+.play:hover {{ background: {ACCENT}; }}
 .ctl {{ min-width: 30px; min-height: 30px; border-radius: 99px; }}
 
 progressbar trough {{ min-height: 4px; border-radius: 99px; background: {CARD_HI}; }}
@@ -155,7 +155,7 @@ scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box
 .sq:hover {{ background: alpha({FG}, 0.18); }}
 .bigplay {{ min-width: 78px; min-height: 40px; border-radius: 12px; background: {FG}; }}
 .bigplay label {{ color: {FRAME}; font-size: 18px; }}
-.bigplay:hover {{ background: {DIM}; }}
+.bigplay:hover {{ background: {ACCENT}; }}
 .pill {{ background: {CARD_HI}; border-radius: 10px; padding: 6px 12px; }}
 .lyric {{ color: {FAINT}; font-size: 13px; }}
 .lyric.now {{ color: {FG}; font-weight: bold; font-size: 14px; }}
@@ -1539,8 +1539,8 @@ class Dashboard(Popup):
                        label("the terminal needs vte3:  sudo pacman -S vte3", "dim"), cls="term")
         self.term = term = Vte.Terminal()
         term.set_font(Pango.FontDescription(f"{FONT} 11"))
-        palette = ["#1c1c1e", "#ff453a", "#30d158", "#ffd60a", "#0a84ff", "#bf5af2", "#5ac8fa", "#c7c7cc",
-                   "#636366", "#ff6961", "#4cd964", "#ffe55c", "#409cff", "#da8fff", "#70d7ff", "#f2f2f7"]
+        palette = ["#181616", "#c4746e", "#8a9a7b", "#c4b28a", "#8ba4b0", "#a292a3", "#8ea4a2", "#c8c093",
+                   "#737c73", "#e46876", "#87a987", "#e6c384", "#7fb4ca", "#938aa9", "#7aa89f", "#c5c9c5"]
         colors = []
         for c in palette:
             g = Gdk.RGBA()

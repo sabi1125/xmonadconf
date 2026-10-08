@@ -21,34 +21,34 @@ unfocused_hollow = true
 save_to_clipboard = true
 
 [colors.primary]
-background = "#141416"
-foreground = "#f2f2f7"
+background = "#181616"
+foreground = "#c5c9c5"
 
 [colors.cursor]
-text = "#141416"
-cursor = "#d6cfbf"
+text = "#12120f"
+cursor = "#c4b28a"
 
 [colors.selection]
 text = "CellForeground"
-background = "#2c2c2e"
+background = "#2d4f67"
 
-# macOS Tahoe dark system colours
+# kanagawa dragon
 [colors.normal]
-black   = "#1c1c1e"
-red     = "#ff453a"
-green   = "#30d158"
-yellow  = "#ffd60a"
-blue    = "#0a84ff"
-magenta = "#bf5af2"
-cyan    = "#5ac8fa"
-white   = "#c7c7cc"
+black   = "#181616"
+red     = "#c4746e"
+green   = "#8a9a7b"
+yellow  = "#c4b28a"
+blue    = "#8ba4b0"
+magenta = "#a292a3"
+cyan    = "#8ea4a2"
+white   = "#c8c093"
 
 [colors.bright]
-black   = "#636366"
-red     = "#ff6961"
-green   = "#4cd964"
-yellow  = "#ffe55c"
-blue    = "#409cff"
-magenta = "#da8fff"
-cyan    = "#70d7ff"
-white   = "#f2f2f7"
+black   = "#737c73"
+red     = "#e46876"
+green   = "#87a987"
+yellow  = "#e6c384"
+blue    = "#7fb4ca"
+magenta = "#938aa9"
+cyan    = "#7aa89f"
+white   = "#c5c9c5"
