@@ -1135,7 +1135,8 @@ noise_reduction = 60
 
 class ArtProgress(Art):
     """round album art inside an open ring (70% of a circle, gap at the bottom)
-    that fills as the song plays. click the ring to seek"""
+    that fills as the song plays, as a gentle wave like the media page's bar.
+    click the ring to seek"""
 
     SWEEP = 0.7 * 2 * math.pi
     START = math.pi / 2 + (2 * math.pi - SWEEP) / 2  # bottom-left end of the ring
@@ -1144,10 +1145,19 @@ class ArtProgress(Art):
         super().__init__(art)
         self.art_size, self.box_size = art, size
         self.set_size_request(size, size)
-        self.frac = 0.0
+        self.frac, self.phase, self.amp = 0.0, 0.0, 0.0
+        self.playing = False
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect("button-press-event", self._click)
         self.on_seek = on_seek
+
+    def step(self, dt):
+        """advance the wave; called every frame while the dashboard is open"""
+        self.phase += dt * 6
+        target = 2.2 if self.playing else 0.0
+        self.amp += (target - self.amp) * min(1, dt * 6)  # wave eases in and out
+        if self.amp > 0.01 or target:
+            self.queue_draw()
 
     def set_frac(self, frac):
         frac = max(0.0, min(1.0, frac))
@@ -1175,8 +1185,13 @@ class ArtProgress(Art):
         cr.arc(c, c, r, start, start + self.SWEEP)
         cr.stroke()
         if self.frac > 0.002:
+            # played: a wave riding on the ring, same wavelength as the media bar
             cr.set_source_rgba(*rgba(ACCENT))
-            cr.arc(c, c, r, start, end)
+            steps = max(2, int((end - start) * r / 1.5))
+            for i in range(steps + 1):
+                a = start + (end - start) * i / steps
+                rr = r + self.amp * math.sin((a - start) * r / 3.2 - self.phase)
+                (cr.move_to if i == 0 else cr.line_to)(c + rr * math.cos(a), c + rr * math.sin(a))
             cr.stroke()
         cr.set_source_rgba(*rgba(FG))  # where the song is now
         cr.arc(c + r * math.cos(end), c + r * math.sin(end), 4.5, 0, 2 * math.pi)
@@ -1748,6 +1763,8 @@ class Dashboard(Popup):
         self.p_wave.step(dt)
         self.p_pos.set_text(fmt_time(pos) if st else "0:00")
         self.m_art.set_frac(self.p_wave.frac)
+        self.m_art.playing = self.p_wave.playing
+        self.m_art.step(dt)
         self._show_lyric(pos)
         return True
 
