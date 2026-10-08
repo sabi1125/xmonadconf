@@ -47,12 +47,12 @@ from Xlib import display as xdisplay  # noqa: E402
 # ----------------------------------------------------------------------------
 # look
 
-BAR = 48        # left bar width
+BAR = 40        # left bar width
 EDGE = 8        # frame thickness on the other three sides
 FLARE = 16      # radius of the concave curves where pieces meet the frame
 ROUND = 18      # radius of the outer corners of panels
 
-FONT = "JetBrainsMono Nerd Font"
+FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
 
 # gruvbox dark, to match the rest of the rice
 FRAME = "#1d2021"
@@ -93,7 +93,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .small {{ font-size: 10px; }}
 
 /* left bar */
-.logo {{ font-size: 20px; color: {ACCENT}; min-height: 36px; min-width: 36px; }}
+.logo {{ font-size: 18px; color: {ACCENT}; min-height: 32px; min-width: 32px; }}
 .ws {{
   min-width: 10px; min-height: 10px; border-radius: 99px; margin: 3px 0;
   background: {FAINT}; transition: all 200ms ease;
@@ -102,7 +102,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .ws.active {{ background: {ACCENT}; min-height: 28px; }}
 .ws:hover {{ background: {FG}; }}
 .clock {{ font-weight: bold; font-size: 13px; }}
-.barbtn {{ min-height: 32px; min-width: 32px; }}
+.barbtn {{ min-height: 30px; min-width: 30px; }}
 .dot {{ color: {ACCENT}; font-size: 8px; }}
 
 /* panels */
@@ -752,13 +752,12 @@ def fmt_time(s):
 
 
 class Dashboard(Popup):
-    W, H = 800, 330  # the panel, below the top edge
+    W, H = 800, 330  # the panel below the top edge; grows to fit the content
 
     def __init__(self, screen, media, stats, keep_open):
         sx, sy, sw, sh = screen
-        cx = (BAR + sw - EDGE) // 2
-        rect = (cx - self.W // 2 - FLARE, 0, self.W + 2 * FLARE, EDGE + self.H)
-        super().__init__("MellowTop", rect, keep_open)
+        self.cx = (BAR + sw - EDGE) // 2
+        super().__init__("MellowTop", self._rect(), keep_open)
         self.media, self.stats = media, stats
         self.weather = None
         self.weather_at = 0
@@ -786,8 +785,22 @@ class Dashboard(Popup):
         root.pack_start(tabs, False, False, 0)
         root.pack_start(self.stack, True, True, 0)
         self.show_tab("Dashboard")
+        self._fit(root)
         media.listeners.append(self._on_media)
         self.refresh_weather()  # so it is there the first time the panel opens
+
+    def _rect(self):
+        return (self.cx - self.W // 2 - FLARE, 0, self.W + 2 * FLARE, EDGE + self.H)
+
+    def _fit(self, root):
+        """grow the panel to the tallest page, so nothing spills past its edge"""
+        root.show_all()
+        _, nat = root.get_preferred_size()
+        self.W = max(self.W, nat.width + root.get_margin_start() + root.get_margin_end() - 2 * FLARE)
+        self.H = max(self.H, nat.height + root.get_margin_top() + root.get_margin_bottom() - EDGE)
+        self.rect = self._rect()
+        self.set_size_request(self.rect[2], self.rect[3])
+        self.move(self.rect[0], self.rect[1])
 
     def paint(self, cr):
         cr.rectangle(0, 0, self.rect[2], EDGE)  # the top edge itself, so there is no seam
@@ -820,7 +833,7 @@ class Dashboard(Popup):
         # user
         hostname = socket.gethostname()
         self.u_up = label("", "dim", "small", xalign=0)
-        u = box(False, 12, label("", "huge", "accent"),
+        u = box(False, 18, label("", "huge", "accent"),
                 box(True, 2, label(f"{getpass.getuser()}@{hostname}", "bold", xalign=0), self.u_up), cls="card")
         u.get_children()[1].set_valign(Gtk.Align.CENTER)
         g.attach(u, 1, 0, 1, 1)
