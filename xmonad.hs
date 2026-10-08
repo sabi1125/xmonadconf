@@ -6,6 +6,8 @@ import XMonad.Actions.WithAll (killAll)
 import XMonad.Hooks.EwmhDesktops (ewmh, ewmhFullscreen)
 import XMonad.Hooks.ManageDocks (avoidStruts, docks)
 import XMonad.Hooks.ManageHelpers (doCenterFloat, doFullFloat, isDialog)
+import XMonad.Hooks.StatusBar (xmonadPropLog')
+import XMonad.Layout.Grid (Grid (..))
 import XMonad.Layout.NoBorders (Ambiguity (OnlyScreenFloat), lessBorders)
 import XMonad.Layout.Renamed (Rename (Replace), renamed)
 import XMonad.Layout.Spacing (Border (..), spacingRaw)
@@ -55,9 +57,10 @@ rofi = "rofi -theme " ++ confDir ++ "/rofi/gruvbox.rasi"
 -- everywhere, even with a single window. only real fullscreen (F11, videos)
 -- goes edge-to-edge and borderless, covering the frame.
 
-myLayout = avoidStruts . lessBorders OnlyScreenFloat . gaps . toggleLayouts full $ tall ||| wide ||| full
+myLayout = avoidStruts . lessBorders OnlyScreenFloat . gaps . toggleLayouts full $ grid ||| tall ||| wide ||| full
   where
     gaps = spacingRaw False (Border 4 4 4 4) True (Border 4 4 4 4) True
+    grid = renamed [Replace "grid"] Grid  -- 4 windows -> 2x2 tiles
     tall = renamed [Replace "tall"] $ Tall 1 (3 / 100) (1 / 2)
     wide = renamed [Replace "wide"] . Mirror $ Tall 1 (3 / 100) (1 / 2)
     full = renamed [Replace "full"] Full
@@ -101,6 +104,15 @@ myManageHook =
     , resource  =? "screensaver"          --> doFullFloat
     ]
     <+> namedScratchpadManageHook scratchpads
+
+------------------------------------------------------------------------
+-- tell the shell which layout is showing: mellow.py reads the root
+-- window property _MELLOW_LAYOUT and shows an icon in the left bar
+
+myLogHook :: X ()
+myLogHook = do
+  l <- gets (description . W.layout . W.workspace . W.current . windowset)
+  xmonadPropLog' "_MELLOW_LAYOUT" (last (words l))  -- drop modifier prefixes, keep "tall"
 
 ------------------------------------------------------------------------
 -- startup
@@ -210,5 +222,6 @@ main =
       , layoutHook         = myLayout
       , manageHook         = myManageHook
       , startupHook        = myStartup
+      , logHook            = myLogHook
       }
       `additionalKeysP` myKeys

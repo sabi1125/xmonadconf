@@ -417,12 +417,13 @@ class Workspaces(threading.Thread):
         atom = d.intern_atom
         self.cur, self.names, self.clients = atom("_NET_CURRENT_DESKTOP"), atom("_NET_DESKTOP_NAMES"), atom("_NET_CLIENT_LIST")
         self.wm_desktop, self.utf8 = atom("_NET_WM_DESKTOP"), atom("UTF8_STRING")
+        self.layout = atom("_MELLOW_LAYOUT")  # set by myLogHook in xmonad.hs
         watched = set()
         root.change_attributes(event_mask=X.PropertyChangeMask)
         self.publish(d, root, watched)
         while True:
             ev = d.next_event()
-            if ev.type == X.PropertyNotify and ev.atom in (self.cur, self.names, self.clients, self.wm_desktop):
+            if ev.type == X.PropertyNotify and ev.atom in (self.cur, self.names, self.clients, self.wm_desktop, self.layout):
                 time.sleep(0.02)  # let a burst of changes land, then read once
                 while d.pending_events():
                     d.next_event()
@@ -435,6 +436,10 @@ class Workspaces(threading.Thread):
             clients = root.get_full_property(self.clients, Xatom.WINDOW).value
         except Exception:
             return
+        try:
+            layout = root.get_full_property(self.layout, self.utf8).value.decode()
+        except Exception:
+            layout = ""
         occupied = set()
         for c in clients:
             w = d.create_resource_object("window", c)
@@ -447,7 +452,7 @@ class Workspaces(threading.Thread):
                     occupied.add(int(p.value[0]))
             except Exception:
                 pass  # closed while we looked
-        GLib.idle_add(self.on_change, names, cur, occupied)
+        GLib.idle_add(self.on_change, names, cur, occupied, layout)
 
 
 def follow(cmd, on_line):
@@ -1286,6 +1291,14 @@ class LeftBar(Strip):
             self.ws_box.pack_start(b, False, False, 0)
         col.pack_start(self.ws_box, False, False, 0)
 
+        # which layout the current workspace uses; click to cycle
+        self.layout = label("", "icon", "dim")
+        layout = button(self.layout, lambda: spawn("xdotool key super+space"), "barbtn", tooltip="layout")
+        layout.set_halign(Gtk.Align.CENTER)
+        layout.set_margin_top(8)
+        self.layout_btn = layout
+        col.pack_start(layout, False, False, 0)
+
         # bottom: clock, status, power
         self.h, self.m, self.p = label("", "clock"), label("", "clock"), label("", "small", "dim")
         clock = button(box(True, 0, self.h, self.m, self.p), toggle_dashboard, "barbtn", tooltip="dashboard")
@@ -1315,8 +1328,12 @@ class LeftBar(Strip):
         if name in self.names:
             spawn(f"xdotool set_desktop {self.names.index(name)}")
 
-    def _on_workspaces(self, names, current, occupied):
+    LAYOUT_ICONS = {"grid": "\U000F0570", "tall": "\U000F0574", "wide": "\U000F0BCB", "full": "\U000F0293"}
+
+    def _on_workspaces(self, names, current, occupied, layout):
         self.names = names
+        self.layout.set_text(self.LAYOUT_ICONS.get(layout, "\U000F0570"))
+        self.layout_btn.set_tooltip_text(f"layout: {layout or '?'} (click to change)")
         cur = names[current] if current < len(names) else None
         busy = {names[i] for i in occupied if i < len(names)}
         for name, b in self.ws.items():
