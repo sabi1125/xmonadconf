@@ -1280,19 +1280,34 @@ class Dashboard(Popup):
 
     def _dashboard(self):
         g = Gtk.Grid(column_spacing=10, row_spacing=10)
+        g.set_hexpand(True)
+        g.set_vexpand(True)
+
+        def fill(card, h=True, v=False):
+            """stretch a card over its grid cell, keeping what is inside it centred"""
+            inner = Gtk.Box()
+            for ch in card.get_children():
+                card.remove(ch)
+                inner.pack_start(ch, False, False, 0)
+            inner.set_spacing(card.get_spacing())
+            inner.set_orientation(card.get_orientation())
+            inner.set_halign(Gtk.Align.CENTER)
+            inner.set_valign(Gtk.Align.CENTER)
+            card.pack_start(inner, True, True, 0)
+            card.set_hexpand(h)
+            card.set_vexpand(v)
+            return card
 
         # weather
         self.w_icon, self.w_temp = label("\U000F0590", "huge"), label("--°", "big", "bold")
         self.w_desc, self.w_more = label("", xalign=0), label("", "dim", "small", xalign=0)
         w = box(False, 12, self.w_icon, box(True, 2, self.w_temp, self.w_desc, self.w_more), cls="card")
         w.set_size_request(220, -1)
-        g.attach(w, 0, 0, 1, 1)
+        g.attach(fill(w), 0, 0, 1, 1)
 
         # clock
         self.c_h, self.c_m, self.c_p = label("", "huge"), label("", "huge"), label("", "dim", "bold")
         c = box(True, 0, self.c_h, label("•••", "accent"), self.c_m, self.c_p, cls="card")
-        c.set_valign(Gtk.Align.FILL)
-        clock_row = box(False, 10, c)
 
         # user
         hostname = socket.gethostname()
@@ -1300,20 +1315,18 @@ class Dashboard(Popup):
         u = box(False, 18, label("", "huge", "accent"),
                 box(True, 2, label(f"{getpass.getuser()}@{hostname}", "bold", xalign=0), self.u_up), cls="card")
         u.get_children()[1].set_valign(Gtk.Align.CENTER)
-        g.attach(u, 1, 0, 1, 1)
+        g.attach(fill(u), 1, 0, 1, 1)
 
         # calendar
         self.cal = Calendar()
         cal = box(True, 0, self.cal, cls="card")
-        g.attach(clock_row, 0, 1, 1, 1)
-        clock_row.set_halign(Gtk.Align.START)
-        g.attach(cal, 1, 1, 1, 1)
+        g.attach(fill(c, v=True), 0, 1, 1, 1)
+        g.attach(fill(cal, v=True), 1, 1, 1, 1)
 
         # rings
         self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 58), Ring("\U000F035B", 58), Ring("\U000F02CA", 58)
         rings = box(True, 8, self.d_cpu, self.d_mem, self.d_disk, cls="card")
-        rings.set_valign(Gtk.Align.FILL)
-        g.attach(rings, 2, 0, 1, 2)
+        g.attach(fill(rings, h=False, v=True), 2, 0, 1, 2)
 
         # now playing
         self.m_art = Art(96)
@@ -1329,7 +1342,7 @@ class Dashboard(Popup):
         art.set_halign(Gtk.Align.CENTER)
         m = box(True, 8, art, self.m_title, self.m_artist, controls, cls="card")
         m.set_size_request(190, -1)
-        g.attach(m, 3, 0, 1, 2)
+        g.attach(fill(m, v=True), 3, 0, 1, 2)
 
         # the clock card takes what the weather card leaves
         c.set_size_request(220, -1)
