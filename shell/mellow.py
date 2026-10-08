@@ -1133,6 +1133,54 @@ noise_reduction = 60
             GLib.idle_add(self.on_frame, [])
 
 
+class ArtProgress(Art):
+    """round album art inside a ring that fills as the song plays. click the ring to seek"""
+
+    def __init__(self, size, art, on_seek):
+        super().__init__(art)
+        self.art_size, self.box_size = art, size
+        self.set_size_request(size, size)
+        self.frac = 0.0
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.connect("button-press-event", self._click)
+        self.on_seek = on_seek
+
+    def set_frac(self, frac):
+        frac = max(0.0, min(1.0, frac))
+        if abs(frac - self.frac) > 0.0005:
+            self.frac = frac
+            self.queue_draw()
+
+    def _click(self, _w, ev):
+        c = self.box_size / 2
+        dx, dy = ev.x - c, ev.y - c
+        if math.hypot(dx, dy) < self.art_size / 2:
+            return  # clicks on the art itself do nothing
+        angle = (math.atan2(dy, dx) + math.pi / 2) % (2 * math.pi)  # 0 at the top, clockwise
+        self.on_seek(angle / (2 * math.pi))
+
+    def _draw(self, w, cr):
+        c = self.box_size / 2
+        r = (self.box_size + self.art_size) / 4  # halfway between the art and the edge
+        start = -math.pi / 2
+        end = start + 2 * math.pi * self.frac
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(4)
+        cr.set_source_rgba(*rgba(CARD_HI))
+        cr.arc(c, c, r, 0, 2 * math.pi)
+        cr.stroke()
+        if self.frac > 0.002:
+            cr.set_source_rgba(*rgba(ACCENT))
+            cr.arc(c, c, r, start, end)
+            cr.stroke()
+        cr.set_source_rgba(*rgba(FG))  # where the song is now
+        cr.arc(c + r * math.cos(end), c + r * math.sin(end), 4.5, 0, 2 * math.pi)
+        cr.fill()
+        off = (self.box_size - self.art_size) / 2
+        cr.translate(off, off)
+        super()._draw(w, cr)
+
+
 class ArtRing(Art):
     """round album art with music bars standing around it, like a sun"""
 
@@ -1346,7 +1394,7 @@ class Dashboard(Popup):
         g.attach(fill(rings, h=False, v=True), 2, 0, 1, 2)
 
         # now playing
-        self.m_art = Art(78)
+        self.m_art = ArtProgress(100, 78, self._seek)
         self.m_title = label("Nothing playing", "bold", ellipsize=True, width=18)
         self.m_artist = label("", "dim", "small", ellipsize=True, width=20)
         self.m_play = label("\U000F040A", "icon")
@@ -1652,18 +1700,22 @@ class Dashboard(Popup):
     # media page --------------------------------------------------------------
 
     def _media_view(self):
-        """the bars, the wave and the lyrics only run while the media page is on screen"""
-        on = self.is_open and self.stack.get_visible_child_name() == "Media"
+        """song position runs while the dashboard or media page is on screen;
+        the music bars and lyrics only for the media page"""
+        page = self.stack.get_visible_child_name() if self.is_open else None
+        on = page in ("Dashboard", "Media")
         if on and not self.anim:
-            self.cava.start()
             self._poll_position()
             self._last_frame = time.monotonic()
             self.anim = GLib.timeout_add(33, self._frame)
-            self._fetch_lyrics()
         elif not on and self.anim:
-            self.cava.stop()
             GLib.source_remove(self.anim)
             self.anim = None
+        if page == "Media":
+            self.cava.start()
+            self._fetch_lyrics()
+        else:
+            self.cava.stop()
 
     def _now(self):
         st = self.media.state
@@ -1690,6 +1742,7 @@ class Dashboard(Popup):
         self.p_wave.frac = min(1.0, pos / length) if length else 0
         self.p_wave.step(dt)
         self.p_pos.set_text(fmt_time(pos) if st else "0:00")
+        self.m_art.set_frac(self.p_wave.frac)
         self._show_lyric(pos)
         return True
 
@@ -1765,6 +1818,7 @@ class Dashboard(Popup):
                              (self.m_artist, ""), (self.p_artist, ""), (self.p_album, ""), (self.p_player, "no player")]:
                 lb.set_text(text)
             self.m_art.set_path(None)
+            self.m_art.set_frac(0)
             self.p_art.set_path(None)
             self.p_len.set_text("0:00")
             return
@@ -1778,7 +1832,7 @@ class Dashboard(Popup):
         self.m_art.set_path(st["art"])
         self.p_art.set_path(st["art"])
         self._poll_position()
-        if self.anim:
+        if self.anim and self.stack.get_visible_child_name() == "Media":
             self._fetch_lyrics()
 
     def _loop(self):
