@@ -5,7 +5,8 @@ Config
   , bgColor         = "#1d2021"
   , fgColor         = "#a89984"
   , alpha           = 200
-  , position        = Static { xpos = 680, ypos = 8, width = 560, height = 30 }
+  , position        = Static { xpos = 680, ypos = -8, width = 560, height = 38 }
+  , textOffset      = 4  -- top 8px is off-screen; keeps text centred in the visible 30px
   , border          = NoBorder
   , lowerOnStart    = True
   , allDesktops     = True

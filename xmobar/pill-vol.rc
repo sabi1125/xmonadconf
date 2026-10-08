@@ -1,0 +1,20 @@
+-- right-hand status pill: volume (click mutes, scroll changes)
+-- one of five floating pills (pill-*.rc), centred on the hanging islands; picom rounds them via wmName
+Config
+  { font            = "JetBrainsMono Nerd Font Bold 10"
+  , additionalFonts = [ "JetBrainsMono Nerd Font 10" ]
+  , bgColor         = "#1d2021"
+  , fgColor         = "#a89984"
+  , alpha           = 200
+  , position        = Static { xpos = 1776, ypos = 3, width = 76, height = 24 }
+  , textOffset      = 0
+  , wmName          = "xmobar-pill"
+  , border          = NoBorder
+  , lowerOnStart    = True
+  , allDesktops     = True
+  , persistent      = True
+  , commands        = [ Run Com "/home/sabir/.config/xmonad/scripts/bar/vol.sh" [] "vol" 5 ]
+  , sepChar         = "%"
+  , alignSep        = "}{"
+  , template        = "}<action=`pamixer -t` button=1><action=`pamixer -i 5` button=4><action=`pamixer -d 5` button=5>%vol%</action></action></action>{"
+  }

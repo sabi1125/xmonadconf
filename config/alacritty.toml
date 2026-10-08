@@ -14,7 +14,7 @@ italic = { family = "JetBrainsMono Nerd Font", style = "Italic" }
 size = 11.0
 
 [cursor]
-style = { shape = "Beam", blinking = "On" }
+style = { shape = "Block", blinking = "On" }
 unfocused_hollow = true
 
 [selection]

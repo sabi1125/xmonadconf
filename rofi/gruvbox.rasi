@@ -86,6 +86,21 @@ element selected.normal {
     text-color:       @accent;
 }
 
+/* the focused window in the window switcher (rows a script marks "active"):
+ * brighter text and a thin yellow edge, like the firefox url bar */
+element normal.active,
+element alternate.active {
+    text-color:   @fg;
+    border:       0 0 0 2px;
+    border-color: @accent;
+}
+element selected.active {
+    background-color: @bg-alt;
+    text-color:       @accent;
+    border:           0 0 0 2px;
+    border-color:     @accent;
+}
+
 element-text {
     text-color:       inherit;
     highlight:        bold #fabd2f;

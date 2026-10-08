@@ -1,0 +1,86 @@
+<!doctype html>
+<!-- ~/.config/xmonad/firefox/newtab/index.html
+     the new tab page (set by autoconfig/mozilla.cfg): a random quote or fact,
+     then the next one every few seconds. content lives in quotes.txt -> build.py -> quotes.js -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New Tab</title>
+<link rel="icon" href="data:,">
+<style>
+  /* frosted like the old about:newtab page (picom blurs what's behind) */
+  :root { background-color: rgba(29, 32, 33, 0.88); color-scheme: dark; }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    min-height: 100vh;
+    margin: 0;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.8s linear;
+  }
+  body.shown { opacity: 1; }
+  #text {
+    order: 0;
+    max-width: 86vw;
+    padding-inline: 24px;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-weight: 500;
+    color: #ebdbb2;
+  }
+  #label {
+    font: 12px "Adwaita Sans", "Noto Sans", sans-serif;
+    letter-spacing: 1.2px;
+  }
+</style>
+<script src="quotes.js"></script>
+</head>
+<body>
+<div id="text"></div>
+<div id="label"></div>
+<script>
+  const lib = window.GB_LIBRARY;
+  const text = document.getElementById("text");
+  const label = document.getElementById("label");
+
+  // a shuffled bag per pool, kept between tabs: nothing repeats until the
+  // whole pool has been shown (falls back to plain random without storage)
+  function draw(pool, key) {
+    let bag = null;
+    try { bag = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+    if (!Array.isArray(bag) || !bag.length || bag.some(i => i >= pool.length)) {
+      bag = pool.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+    const pick = bag.pop();
+    try { localStorage.setItem(key, JSON.stringify(bag)); } catch (e) {}
+    return pool[pick];
+  }
+
+  function next() {
+    const own = !lib.synced.length || Math.random() < lib.ownShare;
+    return own ? draw(lib.own, "gb-own") : draw(lib.synced, "gb-synced");
+  }
+
+  function show() {
+    const item = next();
+    const st = lib.style[item.kind];
+    text.textContent = item.text;
+    Object.assign(text.style, { fontSize: st.size, lineHeight: st.lh, maxWidth: `min(${st.width}, 86vw)` });
+    label.textContent = item.label;
+    Object.assign(label.style, { order: st.order, color: st.label });
+    document.body.classList.add("shown");
+    setTimeout(() => document.body.classList.remove("shown"), (item.secs - lib.fade) * 1000);
+    setTimeout(show, item.secs * 1000);
+  }
+
+  if (lib) show();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+-- right-hand status pill: network
+-- one of five floating pills (pill-*.rc), centred on the hanging islands; picom rounds them via wmName
+Config
+  { font            = "JetBrainsMono Nerd Font Bold 10"
+  , additionalFonts = [ "JetBrainsMono Nerd Font 10" ]
+  , bgColor         = "#1d2021"
+  , fgColor         = "#a89984"
+  , alpha           = 200
+  , position        = Static { xpos = 1620, ypos = 3, width = 150, height = 24 }
+  , textOffset      = 0
+  , wmName          = "xmobar-pill"
+  , border          = NoBorder
+  , lowerOnStart    = True
+  , allDesktops     = True
+  , persistent      = True
+  , commands        = [ Run Com "/home/sabir/.config/xmonad/scripts/bar/net.sh" [] "net" 50 ]
+  , sepChar         = "%"
+  , alignSep        = "}{"
+  , template        = "}<fn=1>%net%</fn>{"
+  }

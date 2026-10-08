@@ -14,9 +14,9 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 
-# center island is x 680..1240, y 8..38; the card hangs centered below it
+# center island is x 680..1240, y 0..30 on screen; the card hangs centered below it
 WIDTH, HEIGHT = 360, 112
-X, Y = 960 - WIDTH // 2, 46
+X, Y = 960 - WIDTH // 2, 38
 ART = 88
 CACHE = os.path.expanduser("~/.cache/media-card")
 

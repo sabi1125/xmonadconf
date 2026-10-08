@@ -3,7 +3,7 @@
 
 for dev in /sys/class/net/en*; do
     [ "$(cat "$dev/operstate" 2>/dev/null)" = up ] && {
-        printf '<fc=#665c54>󰈀</fc> wired'
+        printf '<fc=#83a598>󰈀</fc> wired'
         exit 0
     }
 done
@@ -13,7 +13,7 @@ if [ -n "$wlan" ]; then
     ssid=$(iwctl station "$wlan" show 2>/dev/null \
             | sed -n 's/^ *Connected network *//p' | sed 's/ *$//' | cut -c1-14)
     if [ -n "$ssid" ]; then
-        printf '<fc=#665c54>󰖩</fc> %s' "$ssid"
+        printf '<fc=#83a598>󰖩</fc> %s' "$ssid"
         exit 0
     fi
 fi

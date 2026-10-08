@@ -1,0 +1,20 @@
+-- right-hand status pill: input method (EN / あ); click toggles like ctrl+space
+-- one of five floating pills (pill-*.rc), centred on the hanging islands; picom rounds them via wmName
+Config
+  { font            = "JetBrainsMono Nerd Font Bold 10"
+  , additionalFonts = [ "JetBrainsMono Nerd Font 10" ]
+  , bgColor         = "#1d2021"
+  , fgColor         = "#a89984"
+  , alpha           = 200
+  , position        = Static { xpos = 1554, ypos = 3, width = 60, height = 24 }
+  , textOffset      = 0
+  , wmName          = "xmobar-pill"
+  , border          = NoBorder
+  , lowerOnStart    = True
+  , allDesktops     = True
+  , persistent      = True
+  , commands        = [ Run CommandReader "/home/sabir/.config/xmonad/scripts/bar/ime.sh" "ime" ]
+  , sepChar         = "%"
+  , alignSep        = "}{"
+  , template        = "}<action=`fcitx5-remote -t`><fc=#83a598>󰌌</fc> %ime%</action>{"
+  }

@@ -25,7 +25,7 @@ filter_text_min_length = 1
 filter_text_max_length = 20000000
 denied_text_regex_patterns = []
 capture_image = true
-filter_image_max_size = 5242880
+filter_image_max_size = 16777216 # 16 MiB, measured uncompressed (w*h*4); a 1080p screenshot is ~8.3 MB
 
 [grpc]
 enable_http = false

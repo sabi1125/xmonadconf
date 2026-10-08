@@ -4,7 +4,7 @@
 import XMonad
 import XMonad.Actions.WithAll (killAll)
 import XMonad.Hooks.EwmhDesktops (ewmh, ewmhFullscreen)
-import XMonad.Hooks.ManageHelpers (doCenterFloat, isDialog)
+import XMonad.Hooks.ManageHelpers (doCenterFloat, doFullFloat, isDialog)
 import XMonad.Hooks.StatusBar
 import XMonad.Hooks.StatusBar.PP
 import XMonad.Layout.NoBorders (Ambiguity (OnlyScreenFloat), lessBorders)
@@ -16,6 +16,7 @@ import XMonad.Util.NamedScratchpad
 import XMonad.Util.Run (runProcessWithInput)
 import XMonad.Util.SpawnOnce (spawnOnce)
 
+import Control.Monad (forM_, unless, when)
 import Data.List (isSuffixOf)
 import System.Exit (exitSuccess)
 import qualified XMonad.StackSet as W
@@ -64,11 +65,28 @@ myLayout = lessBorders OnlyScreenFloat . gaps . toggleLayouts full $ tall ||| wi
 ------------------------------------------------------------------------
 -- scratchpad
 
+scratchRect :: W.RationalRect
+scratchRect = W.RationalRect 0.2 0.2 0.6 0.6
+
 scratchpads :: [NamedScratchpad]
 scratchpads =
   [ NS "term" (myTerminal ++ " --class scratchpad") (resource =? "scratchpad")
-      (customFloating $ W.RationalRect 0.2 0.2 0.6 0.6)
+      (customFloating scratchRect)
   ]
+
+-- toggle the popup terminal, re-floating it if it ever got tiled (e.g. by M-t)
+toggleScratchTerm :: X ()
+toggleScratchTerm = do
+  namedScratchpadAction scratchpads "term"
+  withWindowSet $ \ws -> forM_ (W.index ws) $ \w -> do
+    isScratch <- runQuery (resource =? "scratchpad") w
+    when isScratch $ windows (W.float w scratchRect)
+
+-- push a floating window back into tiling, leaving the popup terminal alone
+sinkUnlessScratch :: Window -> X ()
+sinkUnlessScratch w = do
+  isScratch <- runQuery (resource =? "scratchpad") w
+  unless isScratch $ windows (W.sink w)
 
 ------------------------------------------------------------------------
 -- window rules
@@ -80,6 +98,7 @@ myManageHook =
     , className =? "Pavucontrol"   --> doCenterFloat
     , className =? "Nm-connection-editor" --> doCenterFloat
     , title     =? "Picture-in-Picture"   --> doFloat
+    , resource  =? "screensaver"          --> doFullFloat
     ]
     <+> namedScratchpadManageHook scratchpads
 
@@ -92,8 +111,15 @@ myStartup = do
   spawnOnce (confDir ++ "/scripts/wallpaper.sh")
   spawnOnce ("picom --config " ++ confDir ++ "/config/picom.conf")
   spawnOnce ("dunst -config " ++ confDir ++ "/config/dunstrc")
-  spawnOnce "xbanish"  -- hide the cursor while typing
+  spawnOnce "$HOME/.local/bin/hidecursor"  -- hide the cursor while typing (~/.local/src/hidecursor)
   spawnOnce ("clipcatd --replace --config " ++ confDir ++ "/config/clipcat/clipcatd.toml")  -- clipboard history
+  spawnOnce "fcitx5 -d --replace"  -- input method: Ctrl+Space toggles English/Japanese (hazkey)
+  -- bar flares: re-run on every restart so they follow the xmobar positions
+  spawn ("pkill -f '^python3 .*fillets.py'; python3 " ++ confDir ++ "/scripts/bar/fillets.py")
+  -- screen never blanks; clock + quotes screensaver after 5 idle minutes
+  spawn ("pkill -f '^python3 .*screensaver/idle.py'; python3 " ++ confDir ++ "/scripts/screensaver/idle.py")
+  -- hover a workspace dot to peek at its windows
+  spawn ("pkill -f '^python3 .*ws-peek.py'; python3 " ++ confDir ++ "/scripts/bar/ws-peek.py")
 
 ------------------------------------------------------------------------
 -- actions
@@ -125,7 +151,8 @@ myKeys =
   , ("M-p",          spawn (rofi ++ " -show drun"))
   , ("M-v",          spawn ("clipcat-menu --config " ++ confDir ++ "/config/clipcat/clipcat-menu.toml"))  -- clipboard history
   , ("M-<Tab>",      spawn (rofi ++ " -modi \"windows:$HOME/.config/xmonad/rofi/windows.sh\" -show windows"))
-  , ("M-s",          namedScratchpadAction scratchpads "term")
+  , ("M-s",          toggleScratchTerm)
+  , ("M-t",          withFocused sinkUnlessScratch)  -- re-tile, but never the popup terminal
 
     -- closing
   , ("M-q",          kill)
@@ -140,7 +167,11 @@ myKeys =
   , ("M-S-e",        powerMenu)
 
     -- look
-  , ("M-w",          spawn (confDir ++ "/scripts/wallpaper.sh next"))
+  , ("M-S-w",        spawn (confDir ++ "/scripts/wallpaper.sh next"))
+
+    -- notifications
+  , ("M-n",          spawn (confDir ++ "/scripts/bar/bell-seen.sh; dunstctl history-pop"))  -- re-show last notification, clear bell dot
+  , ("M-S-n",        spawn ("dunstctl close-all; " ++ confDir ++ "/scripts/bar/bell-seen.sh"))  -- dismiss all, clear bell dot
 
     -- screenshots
   , ("<Print>",      spawn (confDir ++ "/scripts/screenshot.sh"))
@@ -186,7 +217,9 @@ mySB :: StatusBarConfig
 mySB =
   statusBarProp (xmobar "left") (pure myPP)
     <> statusBarGeneric (xmobar "center") mempty
-    <> statusBarGeneric (xmobar "right") mempty
+    -- right side: one floating pill per status item
+    <> foldMap (\p -> statusBarGeneric (xmobar ("pill-" ++ p)) mempty)
+         ["ime", "net", "vol", "dnd", "power"]
   where
     xmobar name = "xmobar " ++ confDir ++ "/xmobar/" ++ name ++ ".rc"
 

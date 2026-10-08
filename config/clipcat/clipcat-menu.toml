@@ -3,13 +3,13 @@
 server_endpoint = "/run/user/1000/clipcat/grpc.sock"
 finder = "rofi"
 preview_length = 80
-grpc_max_message_size = 8388608
+grpc_max_message_size = 33554432
 
 [rofi]
 line_length = 70
 menu_length = 10
 menu_prompt = "clipboard"
-extra_arguments = ["-theme", "/home/sabir/.config/xmonad/rofi/gruvbox.rasi", "-theme-str", "window {width: 640px;}"]
+extra_arguments = ["-theme", "/home/sabir/.config/xmonad/rofi/gruvbox.rasi", "-no-show-icons", "-theme-str", "window {width: 600px; padding: 12px 8px;} element {padding: 7px 10px;}"]
 show_source_prefix = false
 
 [dmenu]
