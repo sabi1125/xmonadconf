@@ -15,8 +15,8 @@ configuration {
 * {
     bg:      #111618;
     bg-alt:  #1e2326;
-    fg:      #d3c6aa;
-    fg-dim:  #7a8478;
+    fg:      #ebdbb2;
+    fg-dim:  #7c6f64;
     accent:  #b8bb26;
 
     background-color: transparent;
@@ -103,6 +103,6 @@ element selected.active {
 
 element-text {
     text-color:       inherit;
-    highlight:        bold #b8bb26;
+    highlight:        bold #fabd2f;
     vertical-align:   0.5;
 }

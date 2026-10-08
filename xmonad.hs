@@ -23,19 +23,19 @@ import System.Exit (exitSuccess)
 import qualified XMonad.StackSet as W
 
 ------------------------------------------------------------------------
--- colors (everforest dark hard; names kept from gruvbox)
+-- colors (gruvbox, on darker backgrounds)
 
 bg0h, bg0, bg1, bg3, fg1, fg2, fg4, gray, yellow, red :: String
 bg0h   = "#111618"
 bg0    = "#171c1f"
 bg1    = "#1e2326"
-bg3    = "#4f5b58"
-fg1    = "#d3c6aa"
-fg2    = "#d3c6aa"
-fg4    = "#9da9a0"
-gray   = "#7a8478"
+bg3    = "#665c54"
+fg1    = "#ebdbb2"
+fg2    = "#d5c4a1"
+fg4    = "#a89984"
+gray   = "#7c6f64"
 yellow = "#b8bb26"
-red    = "#ca6f71"
+red    = "#cc241d"
 
 ------------------------------------------------------------------------
 -- basics

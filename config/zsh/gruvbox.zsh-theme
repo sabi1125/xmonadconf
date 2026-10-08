@@ -8,14 +8,14 @@
 
 # palette (same values as xmobar, rofi, alacritty, firefox)
 typeset -gA GB=(
-  fg     '#d3c6aa'
-  fg4    '#9da9a0'
-  gray   '#7a8478'
-  dim    '#4f5b58'
+  fg     '#ebdbb2'
+  fg4    '#a89984'
+  gray   '#7c6f64'
+  dim    '#665c54'
   yellow '#b8bb26'
-  red    '#ca6f71'
-  aqua   '#83c092'
-  blue   '#7fbbb3'
+  red    '#cc241d'
+  aqua   '#8ec07c'
+  blue   '#83a598'
 )
 
 setopt prompt_subst
