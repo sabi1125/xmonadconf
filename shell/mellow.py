@@ -23,11 +23,14 @@ import hashlib
 import json
 import math
 import os
+import re
+import shlex
 import signal
 import socket
 import subprocess
 import threading
 import time
+import urllib.parse
 import urllib.request
 import warnings
 
@@ -42,6 +45,12 @@ gi.require_version("GdkX11", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GdkX11, GLib, Gtk, Pango  # noqa: E402,F401
 from Xlib import X, Xatom  # noqa: E402
+
+try:  # the terminal tab needs vte3 (pacman -S vte3)
+    gi.require_version("Vte", "2.91")
+    from gi.repository import Vte  # noqa: E402
+except (ValueError, ImportError):
+    Vte = None
 from Xlib import display as xdisplay  # noqa: E402
 
 # ----------------------------------------------------------------------------
@@ -130,6 +139,24 @@ scale {{ padding: 0; }}
 scale trough {{ min-width: 14px; border-radius: 99px; background: {CARD_HI}; }}
 scale highlight {{ border-radius: 99px; background: {ACCENT}; }}
 scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box-shadow: none; margin: 0; }}
+
+/* performance page */
+.pcard {{ background: {CARD}; border-radius: 16px; padding: 14px 16px; }}
+.ptitle {{ font-size: 16px; font-weight: bold; }}
+.pbig {{ font-size: 22px; font-weight: bold; }}
+.term {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
+
+/* media page */
+.title {{ font-size: 19px; font-weight: bold; }}
+.sq {{ min-width: 36px; min-height: 36px; border-radius: 10px; background: {CARD_HI}; }}
+.sq:hover {{ background: alpha({FG}, 0.18); }}
+.bigplay {{ min-width: 78px; min-height: 40px; border-radius: 12px; background: {FG}; }}
+.bigplay label {{ color: {FRAME}; font-size: 18px; }}
+.bigplay:hover {{ background: {ACCENT}; }}
+.pill {{ background: {CARD_HI}; border-radius: 10px; padding: 6px 12px; }}
+.lyric {{ color: {FAINT}; font-size: 13px; }}
+.lyric.now {{ color: {FG}; font-weight: bold; font-size: 14px; }}
+.lyric.near {{ color: {DIM}; }}
 
 .notif {{ background: {CARD}; border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }}
 .notif-icon {{ background: {CARD_HI}; border-radius: 99px; min-width: 34px; min-height: 34px; color: {ACCENT}; }}
@@ -653,6 +680,7 @@ class Art(Gtk.DrawingArea):
 
     def _draw(self, _w, cr):
         c = self.size / 2
+        cr.new_path()
         cr.arc(c, c, c, 0, 2 * math.pi)
         if self.pix:
             cr.save()
@@ -715,29 +743,286 @@ class Calendar(Gtk.Box):
         self.grid.show_all()
 
 
+class Meter(Gtk.DrawingArea):
+    """a thin bar with a dot at its end"""
+
+    def __init__(self, width=-1):
+        super().__init__()
+        self.frac = 0.0
+        self.set_size_request(width, 10)
+        self.set_hexpand(width < 0)
+        self.connect("draw", self._draw)
+
+    def set(self, frac):
+        self.frac = max(0.0, min(1.0, frac))
+        self.queue_draw()
+
+    def _draw(self, w, cr):
+        width, mid = w.get_allocated_width(), w.get_allocated_height() / 2
+        x = 3 + (width - 10) * self.frac
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(5)
+        cr.set_source_rgba(*rgba(CARD_HI))
+        cr.move_to(x, mid)
+        cr.line_to(width - 8, mid)
+        cr.stroke()
+        cr.set_source_rgba(*rgba(FG, 0.9))
+        cr.arc(width - 3, mid, 2, 0, 2 * math.pi)
+        cr.fill()
+        if self.frac > 0.01:
+            cr.set_source_rgba(*rgba(FG))
+            cr.move_to(3, mid)
+            cr.line_to(x, mid)
+            cr.stroke()
+
+
+class Cookie(Gtk.DrawingArea):
+    """a wavy-edged blob with a big number in it"""
+
+    def __init__(self, size=70):
+        super().__init__()
+        self.size, self.text = size, ""
+        self.set_size_request(size, size)
+        self.connect("draw", self._draw)
+
+    def set_text(self, text):
+        self.text = text
+        self.queue_draw()
+
+    def _draw(self, _w, cr):
+        c, r = self.size / 2, self.size / 2 - 2
+        for i in range(181):
+            a = 2 * math.pi * i / 180
+            rr = r * (0.93 + 0.07 * math.cos(8 * a))
+            (cr.move_to if i == 0 else cr.line_to)(c + rr * math.cos(a), c + rr * math.sin(a))
+        cr.close_path()
+        cr.set_source_rgba(*rgba(CARD_HI))
+        cr.fill()
+        cr.set_source_rgba(*rgba(FG))
+        cr.select_font_face(FONT, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+        cr.set_font_size(self.size * 0.3)
+        e = cr.text_extents(self.text)
+        cr.move_to(c - e.width / 2 - e.x_bearing, c - e.height / 2 - e.y_bearing)
+        cr.show_text(self.text)
+
+
+class Gauge(Gtk.Overlay):
+    """an open ring (270 degrees) with a value and a caption inside"""
+
+    def __init__(self, size, width=8, caption="Used"):
+        super().__init__()
+        self.size, self.width, self.frac = size, width, 0.0
+        area = Gtk.DrawingArea()
+        area.set_size_request(size, size)
+        area.connect("draw", self._draw)
+        self.area = area
+        self.add(area)
+        self.value = label("", "pbig")
+        inner = box(True, 0, self.value, label(caption, "dim", "small"))
+        inner.set_halign(Gtk.Align.CENTER)
+        inner.set_valign(Gtk.Align.CENTER)
+        self.add_overlay(inner)
+
+    def set(self, frac):
+        self.frac = max(0.0, min(1.0, frac))
+        self.value.set_text(f"{self.frac * 100:.0f}%")
+        self.area.queue_draw()
+
+    def _draw(self, _w, cr):
+        c, r = self.size / 2, self.size / 2 - self.width / 2 - 1
+        start, sweep = math.radians(135), math.radians(270)
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(self.width)
+        cr.set_source_rgba(*rgba(CARD_HI))
+        cr.arc(c, c, r, start + sweep * self.frac + 0.15, start + sweep)
+        cr.stroke()
+        if self.frac > 0.005:
+            cr.set_source_rgba(*rgba(FG))
+            cr.arc(c, c, r, start, start + sweep * self.frac)
+            cr.stroke()
+
+
+class Graph(Gtk.DrawingArea):
+    """recent download (filled) and upload (line) rates"""
+
+    def __init__(self, points=60):
+        super().__init__()
+        self.down, self.up = [0.0] * points, [0.0] * points
+        self.set_size_request(-1, 64)
+        self.set_hexpand(True)
+        self.connect("draw", self._draw)
+
+    def push(self, down, up):
+        self.down = self.down[1:] + [down]
+        self.up = self.up[1:] + [up]
+        self.queue_draw()
+
+    def _draw(self, w, cr):
+        width, h = w.get_allocated_width(), w.get_allocated_height()
+        top = max(max(self.down), max(self.up), 1024)
+        n = len(self.down)
+
+        def path(vals):
+            for i, v in enumerate(vals):
+                (cr.move_to if i == 0 else cr.line_to)(width * i / (n - 1), h - 2 - (h - 4) * v / top)
+
+        path(self.down)
+        cr.line_to(width, h)
+        cr.line_to(0, h)
+        cr.close_path()
+        cr.set_source_rgba(*rgba(FG, 0.25))
+        cr.fill()
+        path(self.down)
+        cr.set_source_rgba(*rgba(FG, 0.9))
+        cr.set_line_width(1.5)
+        cr.stroke()
+        path(self.up)
+        cr.set_source_rgba(*rgba(ACCENT, 0.9))
+        cr.stroke()
+
+
+def cpu_name():
+    with open("/proc/cpuinfo") as f:
+        for line in f:
+            if line.startswith("model name"):
+                name = line.split(":", 1)[1]
+                name = re.sub(r"\(R\)|\(TM\)|\d+th Gen |CPU ", "", name)
+                return " ".join(name.split())
+    return "CPU"
+
+
+def read_gpu():
+    """(name, temperature, usage 0-1), or None when there is no way to ask"""
+    out = run("nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu --format=csv,noheader,nounits")
+    if out:
+        try:
+            name, temp, use = [x.strip() for x in out.splitlines()[0].split(",")]
+            return name, float(temp), float(use) / 100
+        except ValueError:
+            pass
+    for busy in sorted(os.listdir("/sys/class/drm")):  # amd
+        path = f"/sys/class/drm/{busy}/device/gpu_busy_percent"
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    return "GPU", None, int(f.read()) / 100
+            except (OSError, ValueError):
+                pass
+    return None
+
+
+def disks():
+    """{disk: [mountpoints]} for every disk with something mounted from it"""
+    found = {}
+    with open("/proc/mounts") as f:
+        for line in f:
+            dev, mnt = line.split()[:2]
+            if not dev.startswith("/dev/") or "zram" in dev or "loop" in dev:
+                continue
+            part = os.path.basename(os.path.realpath(dev))
+            parent = os.path.basename(os.path.dirname(os.path.realpath(f"/sys/class/block/{part}")))
+            disk = parent if os.path.exists(f"/sys/block/{parent}") else part
+            found.setdefault(disk, []).append(mnt.replace("\\040", " "))
+    return found
+
+
+def disk_usage(mounts):
+    seen, used, total = set(), 0, 0
+    for m in mounts:
+        try:
+            st = os.statvfs(m)
+        except OSError:
+            continue
+        key = (st.f_blocks, st.f_bfree, st.f_fsid)
+        if key in seen:
+            continue  # the same filesystem mounted twice
+        seen.add(key)
+        total += st.f_blocks * st.f_frsize
+        used += (st.f_blocks - st.f_bavail) * st.f_frsize
+    return used, total
+
+
+def net_bytes():
+    rx = tx = 0
+    with open("/proc/net/dev") as f:
+        for line in f.readlines()[2:]:
+            name, data = line.split(":", 1)
+            if name.strip() == "lo":
+                continue
+            v = data.split()
+            rx, tx = rx + int(v[0]), tx + int(v[8])
+    return rx, tx
+
+
+def human(n, rate=False):
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if n < 1024 or unit == "TiB":
+            return f"{n:.0f} {unit}{'/s' if rate else ''}" if unit == "B" else f"{n:.1f} {unit}{'/s' if rate else ''}"
+        n /= 1024
+
+
 # ----------------------------------------------------------------------------
 # the pieces
 
 class Media:
-    """now-playing state from playerctl, shared by the dashboard and media tab"""
+    """now-playing state from playerctl, shared by the dashboard and media tab.
+    follows whichever player was active last, or the one picked with next_player()"""
 
     FMT = "\x1f".join(["{{status}}", "{{title}}", "{{artist}}", "{{album}}",
-                       "{{mpris:artUrl}}", "{{mpris:length}}", "{{playerName}}"])
+                       "{{mpris:artUrl}}", "{{mpris:length}}", "{{playerName}}", "{{playerInstance}}"])
 
     def __init__(self):
         self.listeners = []
         self.state = None
-        follow(f"playerctl -F metadata --format '{self.FMT}'", self._line)
+        self.player = None  # a playerctl instance name, or None for "most recent"
+        self._proc = None
+        threading.Thread(target=self._follow, daemon=True).start()
+
+    def _sel(self):
+        return f"-p {shlex.quote(self.player)}" if self.player else ""
+
+    def ctl(self, args):
+        spawn(f"playerctl {self._sel()} {args}")
+
+    def position(self):
+        try:
+            return float(run(f"playerctl {self._sel()} position"))
+        except ValueError:
+            return None
+
+    def next_player(self):
+        players = run("playerctl -l").split()
+        if not players:
+            return
+        cur = self.player or (self.state or {}).get("instance")
+        i = players.index(cur) + 1 if cur in players else 0
+        self.player = players[i % len(players)]
+        if self._proc:
+            self._proc.terminate()  # _follow restarts it for the new player
+
+    def _follow(self):
+        while True:
+            try:
+                self._proc = subprocess.Popen(f"playerctl {self._sel()} -F metadata --format '{self.FMT}'",
+                                              shell=True, stdout=subprocess.PIPE,
+                                              stderr=subprocess.DEVNULL, text=True)
+                for line in self._proc.stdout:
+                    GLib.idle_add(self._line, line.rstrip("\n"))
+                killed = self._proc.wait() < 0
+            except OSError:
+                killed = False
+            time.sleep(0.1 if killed else 3)
 
     def _line(self, line):
         f = line.split("\x1f")
-        if len(f) < 7 or not (f[1] or f[2]):
+        if len(f) < 8 or not (f[1] or f[2]):
             self.state = None
             self._emit()
             return
-        status, title, artist, album, art, length, player = f[:7]
+        status, title, artist, album, art, length, player, instance = f[:8]
         self.state = {"status": status, "title": title, "artist": artist, "album": album,
-                      "length": int(length) / 1e6 if length.isdigit() else 0, "player": player, "art": None}
+                      "length": int(length) / 1e6 if length.isdigit() else 0,
+                      "player": player, "instance": instance, "art": None}
         self._emit()
         in_thread(lambda: fetch_art(art), self._art)
 
@@ -749,6 +1034,168 @@ class Media:
     def _emit(self):
         for fn in self.listeners:
             fn(self.state)
+
+
+def fetch_lyrics(artist, title, length):
+    """[(seconds or None, line)] from lrclib.net, synced when it has timings"""
+    q = urllib.parse.urlencode({"artist_name": artist, "track_name": title, "duration": round(length)})
+    j = None
+    for url in (f"https://lrclib.net/api/get?{q}",
+                "https://lrclib.net/api/search?" + urllib.parse.urlencode({"q": f"{artist} {title}"})):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "mellow-shell"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                j = json.load(r)
+            if isinstance(j, list):
+                j = j[0] if j else None
+            if j:
+                break
+        except Exception:
+            j = None
+    if not j:
+        return []
+    if j.get("syncedLyrics"):
+        lines = []
+        for raw in j["syncedLyrics"].splitlines():
+            if raw.startswith("[") and "]" in raw:
+                stamp, text = raw[1:].split("]", 1)
+                try:
+                    m, sec = stamp.split(":")
+                    lines.append((int(m) * 60 + float(sec), text.strip() or "♪"))
+                except ValueError:
+                    pass
+        return lines
+    return [(None, ln) for ln in (j.get("plainLyrics") or "").splitlines()]
+
+
+class Cava:
+    """runs cava with raw output while something wants the bars"""
+
+    CONF = """[general]
+framerate = 30
+bars = {bars}
+autosens = 1
+sleep_timer = 0
+[input]
+method = pipewire
+source = auto
+[output]
+method = raw
+channels = mono
+raw_target = /dev/stdout
+data_format = ascii
+ascii_max_range = 100
+bar_delimiter = 59
+frame_delimiter = 10
+[smoothing]
+monstercat = 1
+noise_reduction = 60
+"""
+
+    def __init__(self, bars, on_frame):
+        self.bars, self.on_frame = bars, on_frame
+        self.proc = None
+
+    def start(self):
+        if self.proc or not GLib.find_program_in_path("cava"):
+            return
+        os.makedirs(CACHE, exist_ok=True)
+        conf = os.path.join(CACHE, "cava-ring.conf")
+        with open(conf, "w") as f:
+            f.write(self.CONF.format(bars=self.bars))
+        self.proc = proc = subprocess.Popen(["cava", "-p", conf], stdout=subprocess.PIPE,
+                                            stderr=subprocess.DEVNULL, text=True)
+
+        def read():
+            for line in proc.stdout:
+                vals = [int(v) / 100 for v in line.strip().split(";") if v.isdigit()]
+                GLib.idle_add(self.on_frame, vals)
+        threading.Thread(target=read, daemon=True).start()
+
+    def stop(self):
+        if self.proc:
+            self.proc.terminate()
+            self.proc = None
+            GLib.idle_add(self.on_frame, [])
+
+
+class ArtRing(Art):
+    """round album art with music bars standing around it, like a sun"""
+
+    def __init__(self, size, art):
+        super().__init__(art)
+        self.art_size, self.box_size = art, size
+        self.set_size_request(size, size)
+        self.levels = []
+
+    def set_levels(self, vals):
+        self.levels = vals + vals[::-1]  # mirrored, so the ring is symmetric
+        self.queue_draw()
+        return False
+
+    def _draw(self, w, cr):
+        c = self.box_size / 2
+        n = len(self.levels) or 48
+        inner = self.art_size / 2 + 8
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.set_line_width(3)
+        cr.set_source_rgba(*rgba(FG, 0.9))
+        for i in range(n):
+            v = self.levels[i] if self.levels else 0
+            a = 2 * math.pi * i / n - math.pi / 2
+            length = 2 + v * (c - inner - 4)
+            cr.move_to(c + inner * math.cos(a), c + inner * math.sin(a))
+            cr.line_to(c + (inner + length) * math.cos(a), c + (inner + length) * math.sin(a))
+        cr.stroke()
+        off = (self.box_size - self.art_size) / 2
+        cr.translate(off, off)
+        super()._draw(w, cr)
+
+
+class WaveBar(Gtk.DrawingArea):
+    """progress line: a gentle wave for the part already played. click to seek"""
+
+    def __init__(self, on_seek):
+        super().__init__()
+        self.frac, self.phase, self.amp = 0.0, 0.0, 0.0
+        self.playing = False
+        self.set_size_request(-1, 22)
+        self.set_hexpand(True)
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.connect("button-press-event", lambda w, e: on_seek(max(0, min(1, e.x / w.get_allocated_width()))))
+        self.connect("draw", self._draw)
+
+    def step(self, dt):
+        self.phase += dt * 6
+        target = 3.0 if self.playing else 0.0
+        self.amp += (target - self.amp) * min(1, dt * 6)  # wave eases in and out
+        self.queue_draw()
+
+    def _draw(self, w, cr):
+        width, h = w.get_allocated_width(), w.get_allocated_height()
+        mid, x = h / 2, max(0, min(width, width * self.frac))
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        # played: a wave
+        cr.set_line_width(3)
+        cr.set_source_rgba(*rgba(FG))
+        cr.move_to(0, mid)
+        for px in range(0, int(x) - 4):
+            cr.line_to(px, mid + self.amp * math.sin(px / 3.2 - self.phase))
+        cr.stroke()
+        # still to come: a flat line ending in a dot
+        cr.set_source_rgba(*rgba(FAINT))
+        if x + 6 < width - 4:
+            cr.move_to(x + 6, mid)
+            cr.line_to(width - 4, mid)
+            cr.stroke()
+        cr.arc(width - 2, mid, 2, 0, 2 * math.pi)
+        cr.fill()
+        # the thumb
+        cr.set_source_rgba(*rgba(FG))
+        cr.set_line_width(4)
+        cr.move_to(x, mid - 8)
+        cr.line_to(x, mid + 8)
+        cr.stroke()
 
 
 def fmt_time(s):
@@ -764,6 +1211,12 @@ class Dashboard(Popup):
         self.cx = (BAR + sw - EDGE) // 2
         super().__init__("MellowTop", self._rect(), keep_open)
         self.media, self.stats = media, stats
+        self.is_open = False
+        self.grabbed = False
+        self.anim = None
+        self.pos, self.pos_at = 0.0, time.monotonic()
+        self.lyrics, self.lyrics_key, self.lyric_i = [], None, -2
+        self.cava = Cava(24, lambda v: self.p_art.set_levels(v))
         self.weather = None
         self.weather_at = 0
         self.timers = []
@@ -782,7 +1235,8 @@ class Dashboard(Popup):
         self.tabs = {}
         for name, glyph, page in [("Dashboard", "\U000F056E", self._dashboard()),
                                   ("Media", "\U000F075A", self._media()),
-                                  ("Performance", "\U000F04C5", self._performance())]:
+                                  ("Performance", "\U000F04C5", self._performance()),
+                                  ("Terminal", "\U000F018D", self._terminal())]:
             self.stack.add_named(page, name)
             t = button(box(True, 2, label(glyph, "icon"), label(name)), lambda n=name: self.show_tab(n), "tab")
             self.tabs[name] = t
@@ -814,6 +1268,11 @@ class Dashboard(Popup):
 
     def show_tab(self, name):
         self.stack.set_visible_child_name(name)
+        self._media_view()
+        self._keyboard()
+        if name == "Performance" and hasattr(self, "q_disk_gauge"):
+            self._update_disk()
+            in_thread(read_gpu, self._on_gpu)
         for n, t in self.tabs.items():
             (t.get_style_context().add_class if n == name else t.get_style_context().remove_class)("active")
 
@@ -862,9 +1321,9 @@ class Dashboard(Popup):
         self.m_artist = label("", "dim", "small", ellipsize=True, width=20)
         self.m_play = label("\U000F040A", "icon")
         controls = box(False, 6,
-                       button("\U000F04AE", lambda: spawn("playerctl previous"), "ctl"),
-                       button(self.m_play, lambda: spawn("playerctl play-pause"), "play"),
-                       button("\U000F04AD", lambda: spawn("playerctl next"), "ctl"))
+                       button("\U000F04AE", lambda: self.media.ctl("previous"), "ctl"),
+                       button(self.m_play, lambda: self.media.ctl("play-pause"), "play"),
+                       button("\U000F04AD", lambda: self.media.ctl("next"), "ctl"))
         controls.set_halign(Gtk.Align.CENTER)
         art = box(False, 0, self.m_art)
         art.set_halign(Gtk.Align.CENTER)
@@ -879,55 +1338,215 @@ class Dashboard(Popup):
         return g
 
     def _media(self):
-        self.p_art = Art(170)
-        self.p_title = label("Nothing playing", "big", "bold", xalign=0, ellipsize=True, width=28)
-        self.p_artist = label("", xalign=0, ellipsize=True, width=34)
-        self.p_album = label("", "dim", xalign=0, ellipsize=True, width=34)
-        self.p_pos, self.p_len = label("0:00", "small", "dim"), label("0:00", "small", "dim")
-        self.p_bar = Gtk.ProgressBar()
-        self.p_bar.set_valign(Gtk.Align.CENTER)
-        bar = Gtk.Box(spacing=8)
-        bar.pack_start(self.p_pos, False, False, 0)
-        bar.pack_start(self.p_bar, True, True, 0)
-        bar.pack_start(self.p_len, False, False, 0)
-        self.p_play = label("\U000F040A", "icon")
-        controls = box(False, 8,
-                       button("\U000F049D", lambda: spawn("playerctl shuffle toggle"), "ctl", tooltip="shuffle"),
-                       button("\U000F04AE", lambda: spawn("playerctl previous"), "ctl"),
-                       button(self.p_play, lambda: spawn("playerctl play-pause"), "play"),
-                       button("\U000F04AD", lambda: spawn("playerctl next"), "ctl"),
-                       button("\U000F0456", self._loop, "ctl", tooltip="repeat"))
-        controls.set_halign(Gtk.Align.CENTER)
-        self.p_player = label("", "dim", "small", xalign=0)
-        info = box(True, 6, self.p_title, self.p_artist, self.p_album)
-        info.pack_end(self.p_player, False, False, 0)
-        info.pack_end(controls, False, False, 4)
-        info.pack_end(bar, False, False, 4)
-        info.set_hexpand(True)
-        page = box(False, 24, self.p_art, cls="card")
-        page.pack_start(info, True, True, 0)
+        self.p_art = ArtRing(214, 132)
         self.p_art.set_valign(Gtk.Align.CENTER)
+
+        # middle: what is playing and the controls
+        self.p_title = label("Nothing playing", "title", xalign=0, ellipsize=True, width=22)
+        self.p_artist = label("", xalign=0, ellipsize=True, width=28)
+        self.p_album = label("", "dim", xalign=0, ellipsize=True, width=28)
+        self.p_pos, self.p_len = label("0:00", "small", "dim"), label("0:00", "small", "dim")
+        self.p_wave = WaveBar(self._seek)
+        bar = Gtk.Box(spacing=10)
+        bar.pack_start(self.p_pos, False, False, 0)
+        bar.pack_start(self.p_wave, True, True, 0)
+        bar.pack_start(self.p_len, False, False, 0)
+        self.p_play = label("\U000F040A")
+        controls = box(False, 8,
+                       button("\U000F049D", lambda: self.media.ctl("shuffle toggle"), "sq", tooltip="shuffle"),
+                       button("\U000F04AE", lambda: self.media.ctl("previous"), "sq"),
+                       button(self.p_play, lambda: self.media.ctl("play-pause"), "bigplay"),
+                       button("\U000F04AD", lambda: self.media.ctl("next"), "sq"),
+                       button("\U000F0456", self._loop, "sq", tooltip="repeat"))
+        controls.set_halign(Gtk.Align.CENTER)
+        info = box(True, 4, self.p_title, self.p_artist, self.p_album)
+        info.pack_start(bar, False, False, 14)
+        info.pack_start(controls, False, False, 0)
+        info.set_hexpand(True)
+        info.set_size_request(300, -1)
+        info.set_valign(Gtk.Align.CENTER)
+
+        # right: lyrics, and which player is in charge
+        head = Gtk.Box(spacing=8)
+        head.pack_start(label("\U000F0CB8", "icon"), False, False, 0)
+        head.pack_start(label("Lyrics", "bold"), False, False, 0)
+        head.pack_end(button("\U000F0450", self._retry_lyrics, "ctl", tooltip="look again"), False, False, 0)
+        self.l_stack = Gtk.Stack()
+        self.l_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        none = box(True, 8, label("\U000F0CB8", "huge", "faint"), lb := label("No lyrics found", "dim"))
+        self.l_none_text = lb
+        none.set_valign(Gtk.Align.CENTER)
+        self.l_stack.add_named(none, "none")
+        self.l_lines = [label("", "lyric", ellipsize=True, width=26) for _ in range(5)]
+        synced = box(True, 6, *self.l_lines)
+        synced.set_valign(Gtk.Align.CENTER)
+        self.l_stack.add_named(synced, "synced")
+        self.l_plain = label("", "lyric", xalign=0)
+        self.l_plain.set_line_wrap(True)
+        self.l_plain.set_max_width_chars(28)
+        plain = Gtk.ScrolledWindow()
+        plain.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        plain.add(self.l_plain)
+        self.l_stack.add_named(plain, "plain")
+        self.p_player = label("", ellipsize=True, width=16)
+        pill = button(box(False, 8, label("\U000F0379", "icon"), self.p_player, label("\U000F0140", "icon")),
+                      self.media.next_player, "pill", tooltip="switch player")
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        right.set_size_request(250, -1)
+        right.pack_start(head, False, False, 0)
+        right.pack_start(self.l_stack, True, True, 0)
+        right.pack_end(pill, False, False, 0)
+
+        page = Gtk.Box(spacing=26)
+        page.set_margin_start(6)
+        page.pack_start(self.p_art, False, False, 0)
+        page.pack_start(info, True, True, 0)
+        page.pack_start(right, False, False, 0)
+        page.set_size_request(-1, 236)
         return page
 
     def _performance(self):
-        self.q_cpu, self.q_temp = Ring("\U000F0EE0", 120, 9), Ring("\U000F050F", 120, 9)
-        self.q_mem, self.q_disk = Ring("\U000F035B", 120, 9), Ring("\U000F02CA", 120, 9)
-        self.q_sub = {}
-        row = Gtk.Box(spacing=16, homogeneous=True)
-        for key, ring, name in [("cpu", self.q_cpu, "CPU"), ("temp", self.q_temp, "Temperature"),
-                                ("mem", self.q_mem, "Memory"), ("disk", self.q_disk, "Disk")]:
-            sub = label("", "dim", "small")
-            self.q_sub[key] = sub
-            col = box(True, 6, ring, label(name, "bold"), sub)
-            col.set_valign(Gtk.Align.CENTER)
-            row.pack_start(col, True, True, 0)
-        page = box(False, 0, cls="card")
-        page.pack_start(row, True, True, 0)
+        def chip(title, sub, glyph):
+            ring = Ring(glyph, 46, 3)
+            name = label(sub, "dim", xalign=0, ellipsize=True, width=28)
+            head = box(True, 0, label(title, "ptitle", xalign=0), name)
+            head.set_valign(Gtk.Align.CENTER)
+            temp = label("--", "small")
+            meter = Meter()
+            cookie = Cookie(72)
+            left = box(True, 10, box(False, 12, ring, head))
+            tbox = Gtk.Box(spacing=6)
+            tbox.pack_start(label("\U000F050F", "icon", "dim"), False, False, 0)
+            tbox.pack_start(temp, False, False, 0)
+            left.pack_start(tbox, False, False, 0)
+            left.pack_start(meter, False, False, 0)
+            left.set_hexpand(True)
+            right = box(True, 4, label("Usage", "dim", "small"), cookie)
+            right.set_valign(Gtk.Align.CENTER)
+            card = Gtk.Box(spacing=12)
+            card.get_style_context().add_class("pcard")
+            card.pack_start(left, True, True, 0)
+            card.pack_start(right, False, False, 0)
+            return card, ring, name, temp, meter, cookie
+
+        cpu, self.q_cpu_ring, _, self.q_cpu_temp, self.q_cpu_meter, self.q_cpu_use = \
+            chip("CPU", cpu_name(), "\U000F0EE0")
+        gpu, self.q_gpu_ring, self.q_gpu_name, self.q_gpu_temp, self.q_gpu_meter, self.q_gpu_use = \
+            chip("GPU", "looking…", "\U000F08AE")
+        for r in (self.q_cpu_ring, self.q_gpu_ring):
+            r.value.hide()
+            r.value.set_no_show_all(True)
+        row1 = Gtk.Box(spacing=10, homogeneous=True)
+        row1.pack_start(cpu, True, True, 0)
+        row1.pack_start(gpu, True, True, 0)
+
+        # storage
+        self.disks = disks()
+        root_disk = next((d for d, ms in self.disks.items() if "/" in ms), None)
+        self.disk = root_disk or next(iter(self.disks), None)
+        self.q_disk_gauge = Gauge(108)
+        self.q_disk_text = label("", "dim", xalign=0)
+        self.q_disk_name = label("", "bold")
+        pill = button(box(False, 8, label("\U000F02CA", "icon"), self.q_disk_name, label("\U000F0140", "icon")),
+                      self._next_disk, "pill", tooltip="switch disk")
+        info = box(True, 4, label("Storage", "ptitle", xalign=0), self.q_disk_text)
+        info.set_valign(Gtk.Align.CENTER)
+        storage = box(True, 10, box(False, 16, self.q_disk_gauge, info), pill, cls="pcard")
+        pill.set_halign(Gtk.Align.CENTER)
+
+        # network
+        self.net_last = None
+        self.q_graph = Graph()
+        self.q_down, self.q_up, self.q_total = label("", xalign=1), label("", xalign=1), label("", xalign=1)
+        net = box(True, 6, box(False, 8, label("\U000F04E1", "icon"), label("Network", "ptitle")), cls="pcard")
+        net.pack_start(self.q_graph, False, False, 4)
+        for glyph, name, val in [("\U000F01DA", "Download", self.q_down), ("\U000F0552", "Upload", self.q_up),
+                                 ("\U000F02DA", "Total", self.q_total)]:
+            row = Gtk.Box(spacing=8)
+            row.pack_start(label(glyph, "dim"), False, False, 0)
+            row.pack_start(label(name, "dim"), False, False, 0)
+            row.pack_end(val, False, False, 0)
+            net.pack_start(row, False, False, 0)
+        net.set_size_request(290, -1)
+
+        # memory
+        self.q_mem_gauge = Gauge(96)
+        self.q_mem_text = label("", "small")
+        memory = box(True, 8, box(False, 8, label("\U000F035B", "icon"), label("Memory", "ptitle")),
+                     self.q_mem_gauge, self.q_mem_text, cls="pcard")
+        self.q_mem_gauge.set_halign(Gtk.Align.CENTER)
+
+        row2 = Gtk.Box(spacing=10)
+        row2.pack_start(storage, True, True, 0)
+        row2.pack_start(net, True, True, 0)
+        row2.pack_start(memory, False, False, 0)
+        return box(True, 10, row1, row2)
+
+    def _next_disk(self):
+        self.disks = disks()
+        names = sorted(self.disks)
+        if names:
+            i = names.index(self.disk) + 1 if self.disk in names else 0
+            self.disk = names[i % len(names)]
+            self._update_disk()
+
+    def _update_disk(self):
+        if not self.disk:
+            return
+        used, total = disk_usage(self.disks.get(self.disk, []))
+        self.q_disk_gauge.set(used / total if total else 0)
+        self.q_disk_text.set_text(f"{human(used)} / {human(total)}")
+        self.q_disk_name.set_text(self.disk)
+
+    def _terminal(self):
+        if Vte is None:
+            return box(True, 8, label("\U000F018D", "huge", "faint"),
+                       label("the terminal needs vte3:  sudo pacman -S vte3", "dim"), cls="term")
+        self.term = term = Vte.Terminal()
+        term.set_font(Pango.FontDescription(f"{FONT} 11"))
+        palette = ["#282828", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#a89984",
+                   "#928374", "#fb4934", "#b8bb26", "#fabd2f", "#83a598", "#d3869b", "#8ec07c", "#ebdbb2"]
+        colors = []
+        for c in palette:
+            g = Gdk.RGBA()
+            g.parse(c)
+            colors.append(g)
+        fg, bg = Gdk.RGBA(), Gdk.RGBA()
+        fg.parse(FG)
+        bg.parse(CARD)
+        term.set_colors(fg, bg, colors)
+        term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
+        term.set_size_request(-1, 236)
+        term.connect("child-exited", lambda *_: self._spawn_shell())
+        self._spawn_shell()
+        page = box(False, 0, cls="term")
+        page.pack_start(term, True, True, 0)
         return page
+
+    def _spawn_shell(self):
+        shell = os.environ.get("SHELL", "/bin/sh")
+        self.term.spawn_async(Vte.PtyFlags.DEFAULT, os.path.expanduser("~"), [shell], None,
+                              GLib.SpawnFlags.DEFAULT, None, None, -1, None, None, None)
+
+    def _keyboard(self):
+        """the terminal tab takes the keyboard while it is on screen"""
+        want = (self.is_open and Vte is not None and self.stack.get_visible_child_name() == "Terminal")
+        seat = Gdk.Display.get_default().get_default_seat()
+        if want and not self.grabbed and self.get_window():
+            ok = seat.grab(self.get_window(), Gdk.SeatCapabilities.KEYBOARD, False, None, None, None, None)
+            self.grabbed = ok == Gdk.GrabStatus.SUCCESS
+            self.term.grab_focus()
+        elif not want and self.grabbed:
+            seat.ungrab()
+            self.grabbed = False
+        self.GRACE = 1200 if want else Popup.GRACE  # more forgiving while typing
 
     # updates ------------------------------------------------------------------
 
     def on_open(self):
+        self.is_open = True
+        self._media_view()
+        GLib.idle_add(lambda: self._keyboard() or False)  # once the window is on screen
         self.cal.reset()
         self._tick()
         self.timers = [GLib.timeout_add(1000, self._tick)]
@@ -939,6 +1558,12 @@ class Dashboard(Popup):
             in_thread(fetch_weather, self._on_weather)
 
     def on_close(self):
+        self.is_open = False
+        self._media_view()
+        self._keyboard()
+        if name == "Performance" and hasattr(self, "q_disk_gauge"):
+            self._update_disk()
+            in_thread(read_gpu, self._on_gpu)
         for t in self.timers:
             GLib.source_remove(t)
         self.timers = []
@@ -950,36 +1575,142 @@ class Dashboard(Popup):
         self.c_p.set_text(now.strftime("%p"))
         self.u_up.set_text(uptime_text())
 
+        perf = self.stack.get_visible_child_name() == "Performance"
+        rx, tx = net_bytes()
+        if self.net_last:
+            dt = time.monotonic() - self.net_last[2]
+            down, up = (rx - self.net_last[0]) / dt, (tx - self.net_last[1]) / dt
+            self.q_graph.push(down, up)
+            self.q_down.set_text(human(down, rate=True))
+            self.q_up.set_text(human(up, rate=True))
+        self.net_last = (rx, tx, time.monotonic())
+        self.q_total.set_text(f"↓{human(rx)}  ↑{human(tx)}")  # since boot
+
         if now.second % 2 == 0 or not self.d_cpu.value.get_text():
             cpu = self.stats.cpu()
             mem, mu, mt = self.stats.mem()
             disk, du, dt = self.stats.disk()
             temp = self.stats.temp()
-            for ring, frac in [(self.d_cpu, cpu), (self.q_cpu, cpu)]:
-                ring.set(frac, f"{cpu * 100:.0f}%")
-            for ring in (self.d_mem, self.q_mem):
-                ring.set(mem, f"{mem * 100:.0f}%")
-            for ring in (self.d_disk, self.q_disk):
-                ring.set(disk, f"{disk * 100:.0f}%")
-            self.q_temp.set((temp or 0) / 100, f"{temp:.0f}°C" if temp else "--")
-            self.q_sub["cpu"].set_text(f"{os.cpu_count()} threads")
-            self.q_sub["mem"].set_text(f"{mu:.1f} / {mt:.1f} GiB")
-            self.q_sub["disk"].set_text(f"{du:.0f} / {dt:.0f} GB")
-            self.q_sub["temp"].set_text("cpu package")
-
-        if self.media.state and self.stack.get_visible_child_name() == "Media":
-            in_thread(lambda: run("playerctl position"), self._on_position)
+            self.d_cpu.set(cpu, f"{cpu * 100:.0f}%")
+            self.d_mem.set(mem, f"{mem * 100:.0f}%")
+            self.d_disk.set(disk, f"{disk * 100:.0f}%")
+            self.q_cpu_ring.set(cpu, "")
+            self.q_cpu_use.set_text(f"{cpu * 100:.0f}%")
+            self.q_cpu_temp.set_text(f"{temp:.0f}°C" if temp else "--")
+            self.q_cpu_meter.set((temp or 0) / 100)
+            self.q_mem_gauge.set(mem)
+            self.q_mem_text.set_text(f"{mu:.1f} GiB / {mt:.1f} GiB")
+            if perf:
+                self._update_disk()
+                in_thread(read_gpu, self._on_gpu)
         return True
 
-    def _on_position(self, out):
-        st = self.media.state
-        try:
-            pos = float(out)
-        except ValueError:
+    def _on_gpu(self, g):
+        if not g:
+            self.q_gpu_name.set_text("no gpu info")
             return
-        self.p_pos.set_text(fmt_time(pos))
+        name, temp, use = g
+        self.q_gpu_name.set_text(name)
+        self.q_gpu_ring.set(use, "")
+        self.q_gpu_use.set_text(f"{use * 100:.0f}%")
+        self.q_gpu_temp.set_text(f"{temp:.0f}°C" if temp is not None else "--")
+        self.q_gpu_meter.set((temp or 0) / 100)
+
+    # media page --------------------------------------------------------------
+
+    def _media_view(self):
+        """the bars, the wave and the lyrics only run while the media page is on screen"""
+        on = self.is_open and self.stack.get_visible_child_name() == "Media"
+        if on and not self.anim:
+            self.cava.start()
+            self._poll_position()
+            self._last_frame = time.monotonic()
+            self.anim = GLib.timeout_add(33, self._frame)
+            self._fetch_lyrics()
+        elif not on and self.anim:
+            self.cava.stop()
+            GLib.source_remove(self.anim)
+            self.anim = None
+
+    def _now(self):
+        st = self.media.state
+        playing = st and st["status"] == "Playing"
+        return self.pos + (time.monotonic() - self.pos_at if playing else 0)
+
+    def _poll_position(self):
+        if self.media.state:
+            in_thread(self.media.position, self._on_position)
+
+    def _on_position(self, pos):
+        if pos is not None:
+            self.pos, self.pos_at = pos, time.monotonic()
+
+    def _frame(self):
+        now = time.monotonic()
+        dt, self._last_frame = now - self._last_frame, now
+        if int(now) != int(now - dt):
+            self._poll_position()  # once a second; in between the clock keeps time
+        st = self.media.state
+        pos = self._now()
+        length = st["length"] if st else 0
+        self.p_wave.playing = bool(st and st["status"] == "Playing")
+        self.p_wave.frac = min(1.0, pos / length) if length else 0
+        self.p_wave.step(dt)
+        self.p_pos.set_text(fmt_time(pos) if st else "0:00")
+        self._show_lyric(pos)
+        return True
+
+    def _seek(self, frac):
+        st = self.media.state
         if st and st["length"]:
-            self.p_bar.set_fraction(min(1.0, pos / st["length"]))
+            self.pos, self.pos_at = frac * st["length"], time.monotonic()
+            self.media.ctl(f"position {frac * st['length']:.1f}")
+
+    def _fetch_lyrics(self, force=False):
+        st = self.media.state
+        key = st and (st["artist"], st["title"])
+        if not st or (key == self.lyrics_key and not force):
+            return
+        self.lyrics_key, self.lyrics, self.lyric_i = key, [], -2
+        self.l_none_text.set_text("Looking for lyrics…")
+        self.l_stack.set_visible_child_name("none")
+        artist, title, length = st["artist"], st["title"], st["length"]
+        in_thread(lambda: fetch_lyrics(artist, title, length), lambda ls: self._on_lyrics(key, ls))
+
+    def _retry_lyrics(self):
+        self._fetch_lyrics(force=True)
+
+    def _on_lyrics(self, key, lines):
+        if key != self.lyrics_key:
+            return  # the song changed while we were looking
+        self.lyrics, self.lyric_i = lines, -2
+        if not lines:
+            self.l_none_text.set_text("No lyrics found")
+            self.l_stack.set_visible_child_name("none")
+        elif lines[0][0] is None:
+            self.l_plain.set_text("\n".join(t for _, t in lines))
+            self.l_stack.set_visible_child_name("plain")
+        else:
+            self.l_stack.set_visible_child_name("synced")
+
+    def _show_lyric(self, pos):
+        if not self.lyrics or self.lyrics[0][0] is None:
+            return
+        i = -1
+        for n, (t, _) in enumerate(self.lyrics):
+            if t <= pos + 0.2:
+                i = n
+            else:
+                break
+        if i == self.lyric_i:
+            return
+        self.lyric_i = i
+        for slot, lb in enumerate(self.l_lines):  # one line before the current one, three after
+            n = i - 1 + slot
+            lb.set_text(self.lyrics[n][1] if 0 <= n < len(self.lyrics) else "")
+            ctx = lb.get_style_context()
+            for cls, on in (("now", slot == 1), ("near", slot in (0, 2))):
+                (ctx.add_class if on else ctx.remove_class)(cls)
 
     def _on_weather(self, w):
         if not w:
@@ -998,24 +1729,28 @@ class Dashboard(Popup):
         self.p_play.set_text(glyph)
         if not st:
             for lb, text in [(self.m_title, "Nothing playing"), (self.p_title, "Nothing playing"),
-                             (self.m_artist, ""), (self.p_artist, ""), (self.p_album, ""), (self.p_player, "")]:
+                             (self.m_artist, ""), (self.p_artist, ""), (self.p_album, ""), (self.p_player, "no player")]:
                 lb.set_text(text)
             self.m_art.set_path(None)
             self.p_art.set_path(None)
-            self.p_bar.set_fraction(0)
+            self.p_len.set_text("0:00")
             return
         self.m_title.set_text(st["title"] or "Unknown")
         self.p_title.set_text(st["title"] or "Unknown")
         self.m_artist.set_text(st["artist"])
         self.p_artist.set_text(st["artist"])
-        self.p_album.set_text(st["album"] or "")
-        self.p_player.set_text(f"via {st['player']}")
+        self.p_album.set_text(st["album"] or "Unknown album")
+        self.p_player.set_text(st["player"].replace("_", " ").title())
         self.p_len.set_text(fmt_time(st["length"]))
         self.m_art.set_path(st["art"])
         self.p_art.set_path(st["art"])
+        self._poll_position()
+        if self.anim:
+            self._fetch_lyrics()
 
     def _loop(self):
-        spawn('[ "$(playerctl loop)" = None ] && playerctl loop Playlist || playerctl loop None')
+        sel = self.media._sel()
+        spawn(f'[ "$(playerctl {sel} loop)" = None ] && playerctl {sel} loop Playlist || playerctl {sel} loop None')
 
 
 class Volume(Popup):
