@@ -377,6 +377,7 @@ class Strip(Surface):
     def __init__(self, rect, strut, clickable=True):
         super().__init__("MellowFrame", rect, clickable=clickable)
         self.strut = strut
+        self.holes = {}  # owner -> screen rect an open panel paints instead
         self.realize()
         if strut:
             set_strut(self, **strut)
@@ -385,6 +386,27 @@ class Strip(Surface):
         self.show_all()
         self.get_window().lower()  # stay under fullscreen windows
 
+    def set_hole(self, owner, rect):
+        """let an open panel paint this part of the frame itself (rect None:
+        take it back). two windows blur separately, so where the frame and a
+        panel meet their brightness would jump; one window blends it smoothly"""
+        if rect is None:
+            self.holes.pop(owner, None)
+        else:
+            self.holes[owner] = rect
+        self._shape()
+        self.queue_draw()
+
+    def paint(self, cr):
+        x0, y0, w, h = self.rect
+        cr.save()
+        cr.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
+        cr.rectangle(0, 0, w, h)
+        for hx, hy, hw, hh in self.holes.values():
+            cr.rectangle(hx - x0, hy - y0, hw, hh)
+        cr.fill()
+        cr.restore()
+
 
 class Corner(Surface):
     """the rounded inside corner of the frame"""
@@ -392,9 +414,20 @@ class Corner(Surface):
     def __init__(self, x, y, cx, cy):
         super().__init__("MellowFrame", (x, y, FLARE, FLARE), clickable=False)
         self.centre = (cx, cy)
+        self.holes = {}
+
+    def set_hole(self, owner, rect):
+        """an open panel covering this corner paints it instead"""
+        if rect is None:
+            self.holes.pop(owner, None)
+        else:
+            self.holes[owner] = rect
+        self._shape()
+        self.queue_draw()
 
     def paint(self, cr):
-        flare(cr, 0, 0, *self.centre)
+        if not self.holes:
+            flare(cr, 0, 0, *self.centre)
 
 
 class Popup(Surface):
@@ -408,6 +441,7 @@ class Popup(Surface):
     def __init__(self, wmclass, rect, keep_open=lambda x, y: False):
         super().__init__(wmclass, rect, popup=True)
         self.keep_open = keep_open
+        self.covers = []  # (frame piece, screen rect) this panel paints itself while open
         self.pinned = False   # opened from the keyboard: stays until the pointer visits and leaves
         self._timer = None
         self._away = 0
@@ -417,6 +451,7 @@ class Popup(Surface):
         self._away = 0
         if not self.get_visible():
             self.on_open()
+            self._cut(True)
             self.show_all()
         self.get_window().raise_()
         if not self._timer:
@@ -429,6 +464,12 @@ class Popup(Surface):
         if self.get_visible():
             self.hide()
             self.on_close()
+            # give the frame back once the slide-out animation is over
+            GLib.timeout_add(170, lambda: self.get_visible() or self._cut(False) or False)
+
+    def _cut(self, on):
+        for piece, rect in self.covers:
+            piece.set_hole(self, rect if on else None)
 
     def toggle(self):
         self.close() if self.get_visible() else self.open(pinned=True)
@@ -1376,7 +1417,8 @@ class Dashboard(Popup):
         self.move(self.rect[0], self.rect[1])
 
     def paint(self, cr):
-        # starts below the top edge: overlapping it would double the see-through colour
+        cr.rectangle(0, 0, self.rect[2], EDGE)  # its stretch of the top edge (cut out of the frame)
+        cr.fill()
         hanging_panel(cr, "top", EDGE, FLARE, self.W, self.H)
 
     def show_tab(self, name):
@@ -1923,6 +1965,8 @@ class Volume(Popup):
 
     def paint(self, cr):
         w, h = self.rect[2], self.rect[3]
+        cr.rectangle(w - EDGE, 0, EDGE, h)  # its stretch of the right edge
+        cr.fill()
         hanging_panel(cr, "right", w - EDGE, FLARE, self.H, self.W)
 
     def on_open(self):
@@ -2041,24 +2085,8 @@ class Sidebar(Popup):
 
     def paint(self, cr):
         w, h, x = self.rect[2], self.rect[3], self.SESSION_W
-        # inside the frame only, so nothing is painted twice where it overlaps the
-        # frame. the frame's own rounded corners sit at the two right-hand corners:
-        # there, paint just the part inside their curve
-        cx = w - EDGE - FLARE
-        cr.save()
-        cr.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
-        cr.rectangle(x, EDGE, w - EDGE - x, h - 2 * EDGE)
-        cr.rectangle(cx, EDGE, FLARE, FLARE)
-        cr.rectangle(cx, h - EDGE - FLARE, FLARE, FLARE)
+        cr.rectangle(x, 0, w - x, h)  # with the frame edges it covers (cut out of the frame)
         cr.fill()
-        cr.restore()
-        for sy, cy in ((EDGE, EDGE + FLARE), (h - EDGE - FLARE, h - EDGE - FLARE)):
-            cr.save()
-            cr.rectangle(cx, sy, FLARE, FLARE)
-            cr.clip()
-            cr.arc(cx, cy, FLARE, 0, 2 * math.pi)
-            cr.fill()
-            cr.restore()
         flare(cr, x - FLARE, EDGE, x - FLARE, EDGE + FLARE)
         flare(cr, x - FLARE, h - EDGE - FLARE, x - FLARE, h - EDGE - FLARE)
         hanging_panel(cr, "right", x, self.u0, self.SESSION_H, self.SESSION_W)
@@ -2264,7 +2292,167 @@ class WorkspacePeek(Popup):
             self.on_switch(self.name)
 
 
+WALL_DIR = os.path.expanduser("~/.config/xmonad/wallpapers")
+
+
+def wallpapers():
+    """the wallpapers scripts/wallpaper.sh can set, newest first"""
+    try:
+        names = [n for n in os.listdir(WALL_DIR) if n.lower().endswith((".png", ".jpg", ".jpeg"))]
+    except OSError:
+        return []
+    return sorted(names, key=lambda n: -os.path.getmtime(os.path.join(WALL_DIR, n)))
+
+
+def wall_thumb(name, w, h):
+    """a w x h thumbnail of a wallpaper, cropped to fill like feh --bg-fill.
+    cached in ~/.cache/mellow/walls, since the big pngs are slow to load"""
+    src = os.path.join(WALL_DIR, name)
+    cache = os.path.join(CACHE, "walls")
+    os.makedirs(cache, exist_ok=True)
+    path = os.path.join(cache, f"{name}.{int(os.path.getmtime(src))}.{w}x{h}.png")
+    try:
+        if os.path.exists(path):
+            return GdkPixbuf.Pixbuf.new_from_file(path)
+        _, iw, ih = GdkPixbuf.Pixbuf.get_file_info(src)
+        k = max(w / iw, h / ih)
+        sw, sh = math.ceil(iw * k), math.ceil(ih * k)
+        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(src, sw, sh, False)
+        pix = pix.new_subpixbuf((sw - w) // 2, (sh - h) // 2, w, h).copy()
+        pix.savev(path, "png", [], [])
+        return pix
+    except (GLib.Error, TypeError, OSError):
+        return None
+
+
+class WallThumb(Thumb):
+    """a wallpaper thumbnail: outlined when it is the current one or hovered"""
+
+    def __init__(self, w, h, on_click):
+        super().__init__(w, h, on_click)
+        self.current = self.hover = False
+        self.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.connect("enter-notify-event", lambda *_: self._set_hover(True))
+        self.connect("leave-notify-event", lambda *_: self._set_hover(False))
+
+    def _set_hover(self, on):
+        self.hover = on
+        self.queue_draw()
+
+    def _draw(self, w, cr):
+        pad = 3  # room for the outline
+        cr.save()
+        cr.translate(pad, pad)
+        cr.scale((self.w - 2 * pad) / self.w, (self.h - 2 * pad) / self.h)
+        super()._draw(w, cr)
+        cr.restore()
+        if self.current or self.hover:
+            r = 12
+            cr.new_sub_path()
+            cr.arc(self.w - r - 1, r + 1, r, -math.pi / 2, 0)
+            cr.arc(self.w - r - 1, self.h - r - 1, r, 0, math.pi / 2)
+            cr.arc(r + 1, self.h - r - 1, r, math.pi / 2, math.pi)
+            cr.arc(r + 1, r + 1, r, math.pi, 3 * math.pi / 2)
+            cr.close_path()
+            cr.set_line_width(2.5)
+            cr.set_source_rgba(*(rgba(ACCENT) if self.current else rgba(FG, 0.5)))
+            cr.stroke()
+
+
+class WallpaperPicker(Popup):
+    """rises from the bottom edge: the wallpapers, as pictures only. click one
+    to set it (scripts/wallpaper.sh keeps it across restarts)"""
+
+    TW, TH, ROWS = 208, 117, 2
+
+    def __init__(self, screen, keep_open):
+        sx, sy, sw, sh = screen
+        self.W = int((sw - BAR - EDGE) * 0.6)
+        self.x_end = sw - EDGE - 48  # leave the frame's corner clear
+        self.H = self.ROWS * self.TH + (self.ROWS - 1) * 10 + 2 * 16
+        rect = (self.x_end - self.W - FLARE, sh - EDGE - self.H, self.W + 2 * FLARE, self.H + EDGE)
+        super().__init__("MellowBottom", rect, keep_open)
+        self.thumbs = {}
+        self.grid = Gtk.Grid(row_spacing=10, column_spacing=10)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        scroll.add(self.grid)
+        scroll.connect("scroll-event", self._wheel)
+        scroll.set_margin_start(FLARE + 16)
+        scroll.set_margin_end(FLARE + 16)
+        scroll.set_margin_top(16)
+        scroll.set_margin_bottom(16)
+        self.scroll = scroll
+        self.add(scroll)
+        self._load()
+
+    def zone(self):
+        """the part of the bottom edge that opens it"""
+        x, y, w, h = self.rect
+        return (x + FLARE, y + self.H, self.W, EDGE + 1)
+
+    def paint(self, cr):
+        cr.rectangle(0, self.H, self.rect[2], EDGE)  # its stretch of the bottom edge
+        cr.fill()
+        hanging_panel(cr, "bottom", self.H, FLARE, self.W, self.H)
+
+    def _wheel(self, _w, ev):
+        """the mouse wheel scrolls sideways"""
+        adj = self.scroll.get_hadjustment()
+        _, dx, dy = ev.get_scroll_deltas()
+        if ev.direction == Gdk.ScrollDirection.UP:
+            dy = -1
+        elif ev.direction == Gdk.ScrollDirection.DOWN:
+            dy = 1
+        adj.set_value(adj.get_value() + (dy or dx) * (self.TW + 10))
+        return True
+
+    def _load(self):
+        names = wallpapers()
+        if list(self.thumbs) == names:
+            return
+        for ch in self.grid.get_children():
+            self.grid.remove(ch)
+        self.thumbs = {}
+        for i, name in enumerate(names):
+            t = WallThumb(self.TW, self.TH, lambda n=name: self._set(n))
+            t.note = "…"
+            self.thumbs[name] = t
+            self.grid.attach(t, i // self.ROWS, i % self.ROWS, 1, 1)
+        self.grid.show_all()
+        self._mark()
+
+        def work():  # decode the pictures off the gtk thread
+            for name in names:
+                pix = wall_thumb(name, self.TW, self.TH)
+                GLib.idle_add(lambda n=name, p=pix: self.thumbs.get(n) and self.thumbs[n].set(p, "?"))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _mark(self):
+        try:
+            with open(os.path.join(WALL_DIR, ".current")) as f:
+                current = f.read().strip()
+        except OSError:
+            current = None
+        for name, t in self.thumbs.items():
+            if t.current != (name == current):
+                t.current = name == current
+                t.queue_draw()
+
+    def on_open(self):
+        self._load()  # pick up wallpapers added since
+        self._mark()
+
+    def _set(self, name):
+        with open(os.path.join(WALL_DIR, ".current"), "w") as f:
+            f.write(name + "\n")
+        spawn(os.path.expanduser("~/.config/xmonad/scripts/wallpaper.sh"))
+        self._mark()
+
+
 class LeftBar(Strip):
+    paint = Surface.paint  # the bar never gives parts away
+
     SNAP_EVERY = 4  # seconds between snapshots of the workspace on screen
 
     def __init__(self, screen, toggle_dashboard, toggle_sidebar, others_open=lambda: False):
@@ -2520,17 +2708,31 @@ class Shell:
         right_zone = self.right.rect
         self.sidebar = Sidebar(screen, lambda x, y: False)
         self.volume = Volume(screen, lambda x, y: in_rect(x, y, right_zone) and not self.sidebar.get_visible())
+        self.walls = WallpaperPicker(screen, lambda x, y: in_rect(x, y, self.walls.zone()))
+        d, v, sb, wp = self.dashboard.rect, self.volume.rect, self.sidebar.rect, self.walls.rect
+        self.dashboard.covers = [(self.top, (d[0], 0, d[2], EDGE))]
+        self.volume.covers = [(self.right, (sw - EDGE, v[1], EDGE, v[3]))]
+        side_x = sw - (sb[2] - Sidebar.SESSION_W)
+        self.sidebar.covers = [(self.top, (side_x, 0, sw - side_x, EDGE)),
+                               (self.bottom, (side_x, sh - EDGE, sw - side_x, EDGE)),
+                               (self.right, (sw - EDGE, 0, EDGE, sh)),
+                               (corners[1], corners[1].rect), (corners[3], corners[3].rect)]
+        self.walls.covers = [(self.bottom, (wp[0], sh - EDGE, wp[2], EDGE))]
         self.bar = LeftBar(screen, self.dashboard.toggle, self.sidebar.toggle,
-                           lambda: any(p.get_visible() for p in (self.dashboard, self.sidebar, self.volume)))
+                           lambda: any(p.get_visible() for p in (self.dashboard, self.sidebar, self.volume,
+                                                                  self.walls)))
 
         # hover the middle of the top edge -> dashboard
         # hover the right edge -> volume; stay there -> sidebar
+        # hover the right part of the bottom edge -> wallpapers
         self._watching = None
-        for strip in (self.top, self.right):
+        for strip in (self.top, self.right, self.bottom):
             strip.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
         self.top.connect("motion-notify-event", lambda *_: self._watch(top_zone, [(120, self.dashboard.open)]))
         self.right.connect("enter-notify-event", lambda *_: self._watch(
             self.right.rect, [(80, self.volume.open), (900, self._open_sidebar)]))
+        self.bottom.connect("motion-notify-event", lambda _w, e: in_rect(e.x_root, e.y_root, self.walls.zone())
+                            and self._watch(self.walls.zone(), [(150, self.walls.open)]))
 
         for w in [self.bar, self.top, self.right, self.bottom]:
             w.show_lowered()
