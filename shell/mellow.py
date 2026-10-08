@@ -60,6 +60,8 @@ BAR = 40        # left bar width
 EDGE = 8        # frame thickness on the other three sides
 FLARE = 16      # radius of the concave curves where pieces meet the frame
 ROUND = 18      # radius of the outer corners of panels
+ALPHA = 0.85    # opacity of the frame and panels; picom blurs what shows through
+CARD_ALPHA = 0.7  # cards inside the panels, on top of that
 PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
@@ -118,7 +120,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .ime.ja {{ color: #fabd2f; font-size: 15px; }}
 
 /* panels */
-.card {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
+.card {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px; }}
 .tab {{ padding: 5px 12px; border-radius: 10px; }}
 .tab label {{ color: {DIM}; }}
 .tab.active label {{ color: {FG}; }}
@@ -146,10 +148,10 @@ scale highlight {{ border-radius: 99px; background: {ACCENT}; }}
 scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box-shadow: none; margin: 0; }}
 
 /* performance page */
-.pcard {{ background: {CARD}; border-radius: 14px; padding: 10px 12px; }}
+.pcard {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px 12px; }}
 .ptitle {{ font-size: 14px; font-weight: bold; }}
 .pbig {{ font-size: 17px; font-weight: bold; }}
-.term {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
+.term {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px; }}
 
 /* media page */
 .title {{ font-size: 17px; font-weight: bold; }}
@@ -163,7 +165,7 @@ scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box
 .lyric.now {{ color: {FG}; font-weight: bold; font-size: 14px; }}
 .lyric.near {{ color: {DIM}; }}
 
-.notif {{ background: {CARD}; border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }}
+.notif {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }}
 .notif-icon {{ background: {CARD_HI}; border-radius: 99px; min-width: 34px; min-height: 34px; color: {ACCENT}; }}
 .session {{ min-width: 46px; min-height: 46px; border-radius: 14px; font-size: 20px; }}
 .session label, .logo label {{ font-size: inherit; }}
@@ -341,15 +343,26 @@ class Surface(Gtk.Window):
         self.set_size_request(w, h)
         self.move(x, y)
         self.connect("draw", self._draw)
+        self.connect("realize", lambda *_: self._shape())
         if not clickable:
             self.connect("realize", lambda *_: self.input_shape_combine_region(cairo.Region()))
+
+    def _shape(self):
+        """cut the window to the pixels paint() covers. picom blurs the whole
+        window shape, so without this the see-through parts would blur too"""
+        w, h = self.rect[2], self.rect[3]
+        img = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(img)
+        cr.set_source_rgba(1, 1, 1, 1)
+        self.paint(cr)
+        self.shape_combine_region(Gdk.cairo_region_create_from_surface(img))
 
     def _draw(self, _w, cr):
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.set_source_rgba(0, 0, 0, 0)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
-        cr.set_source_rgba(*rgba(FRAME))
+        cr.set_source_rgba(*rgba(FRAME, ALPHA))
         self.paint(cr)
         return False
 
@@ -1348,8 +1361,7 @@ class Dashboard(Popup):
         self.move(self.rect[0], self.rect[1])
 
     def paint(self, cr):
-        cr.rectangle(0, 0, self.rect[2], EDGE)  # the top edge itself, so there is no seam
-        cr.fill()
+        # starts below the top edge: overlapping it would double the see-through colour
         hanging_panel(cr, "top", EDGE, FLARE, self.W, self.H)
 
     def show_tab(self, name):
@@ -1618,6 +1630,7 @@ class Dashboard(Popup):
         fg, bg = Gdk.RGBA(), Gdk.RGBA()
         fg.parse(FG)
         bg.parse(CARD)
+        bg.alpha = 0.0  # the card behind it shows through
         term.set_colors(fg, bg, colors)
         term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
         term.set_size(80, 8)  # vte asks for 24 rows by default, which would make the whole panel tall
@@ -1895,8 +1908,6 @@ class Volume(Popup):
 
     def paint(self, cr):
         w, h = self.rect[2], self.rect[3]
-        cr.rectangle(w - EDGE, 0, EDGE, h)
-        cr.fill()
         hanging_panel(cr, "right", w - EDGE, FLARE, self.H, self.W)
 
     def on_open(self):
@@ -2015,8 +2026,24 @@ class Sidebar(Popup):
 
     def paint(self, cr):
         w, h, x = self.rect[2], self.rect[3], self.SESSION_W
-        cr.rectangle(x, 0, w - x, h)
+        # inside the frame only, so nothing is painted twice where it overlaps the
+        # frame. the frame's own rounded corners sit at the two right-hand corners:
+        # there, paint just the part inside their curve
+        cx = w - EDGE - FLARE
+        cr.save()
+        cr.set_fill_rule(cairo.FILL_RULE_EVEN_ODD)
+        cr.rectangle(x, EDGE, w - EDGE - x, h - 2 * EDGE)
+        cr.rectangle(cx, EDGE, FLARE, FLARE)
+        cr.rectangle(cx, h - EDGE - FLARE, FLARE, FLARE)
         cr.fill()
+        cr.restore()
+        for sy, cy in ((EDGE, EDGE + FLARE), (h - EDGE - FLARE, h - EDGE - FLARE)):
+            cr.save()
+            cr.rectangle(cx, sy, FLARE, FLARE)
+            cr.clip()
+            cr.arc(cx, cy, FLARE, 0, 2 * math.pi)
+            cr.fill()
+            cr.restore()
         flare(cr, x - FLARE, EDGE, x - FLARE, EDGE + FLARE)
         flare(cr, x - FLARE, h - EDGE - FLARE, x - FLARE, h - EDGE - FLARE)
         hanging_panel(cr, "right", x, self.u0, self.SESSION_H, self.SESSION_W)
