@@ -21,11 +21,11 @@ unfocused_hollow = true
 save_to_clipboard = true
 
 [colors.primary]
-background = "#181616"
+background = "#000000"
 foreground = "#c5c9c5"
 
 [colors.cursor]
-text = "#12120f"
+text = "#000000"
 cursor = "#c4b28a"
 
 [colors.selection]
@@ -34,7 +34,7 @@ background = "#2d4f67"
 
 # kanagawa dragon
 [colors.normal]
-black   = "#181616"
+black   = "#000000"
 red     = "#c4746e"
 green   = "#8a9a7b"
 yellow  = "#c4b28a"

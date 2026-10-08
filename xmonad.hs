@@ -26,9 +26,9 @@ import qualified XMonad.StackSet as W
 -- colors (kanagawa dragon; names kept from gruvbox)
 
 bg0h, bg0, bg1, bg3, fg1, fg2, fg4, gray, yellow, red :: String
-bg0h   = "#12120f"
-bg0    = "#181616"
-bg1    = "#282727"
+bg0h   = "#000000"
+bg0    = "#000000"
+bg1    = "#1a1a1a"
 bg3    = "#625e5a"
 fg1    = "#c5c9c5"
 fg2    = "#c8c093"

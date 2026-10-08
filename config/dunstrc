@@ -13,7 +13,7 @@
     padding = 12
     horizontal_padding = 14
     frame_width = 2
-    frame_color = "#282727"
+    frame_color = "#1a1a1a"
     separator_color = frame
     corner_radius = 8
 
@@ -38,17 +38,17 @@
     mouse_right_click = close_current
 
 [urgency_low]
-    background = "#12120f"
+    background = "#000000"
     foreground = "#a6a69c"
     timeout = 4
 
 [urgency_normal]
-    background = "#12120f"
+    background = "#000000"
     foreground = "#c5c9c5"
     timeout = 6
 
 [urgency_critical]
-    background = "#12120f"
+    background = "#000000"
     foreground = "#c5c9c5"
     frame_color = "#c4746e"
     timeout = 0

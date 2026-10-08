@@ -13,8 +13,8 @@ configuration {
 }
 
 * {
-    bg:      #12120f;
-    bg-alt:  #282727;
+    bg:      #000000;
+    bg-alt:  #1a1a1a;
     fg:      #c5c9c5;
     fg-dim:  #737c73;
     accent:  #c4b28a;
