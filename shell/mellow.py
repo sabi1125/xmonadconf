@@ -116,6 +116,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .clock {{ font-weight: bold; font-size: 13px; }}
 .barbtn {{ min-height: 30px; min-width: 30px; }}
 .dot {{ color: {ACCENT}; font-size: 8px; }}
+.row {{ padding: 4px 8px; border-radius: 8px; }}
 .ime {{ font-weight: bold; font-size: 11px; color: {DIM}; }}
 .ime.ja {{ color: #fabd2f; font-size: 15px; }}
 
@@ -461,7 +462,8 @@ class Popup(Surface):
 # data sources
 
 class Workspaces(threading.Thread):
-    """watches xmonad's EWMH properties: current desktop and which have windows"""
+    """watches xmonad's EWMH properties: current desktop, the windows on each
+    desktop (title and class) and which one has focus"""
 
     def __init__(self, on_change):
         super().__init__(daemon=True)
@@ -474,12 +476,14 @@ class Workspaces(threading.Thread):
         self.cur, self.names, self.clients = atom("_NET_CURRENT_DESKTOP"), atom("_NET_DESKTOP_NAMES"), atom("_NET_CLIENT_LIST")
         self.wm_desktop, self.utf8 = atom("_NET_WM_DESKTOP"), atom("UTF8_STRING")
         self.layout = atom("_MELLOW_LAYOUT")  # set by myLogHook in xmonad.hs
+        self.wm_name, self.active = atom("_NET_WM_NAME"), atom("_NET_ACTIVE_WINDOW")
         watched = set()
         root.change_attributes(event_mask=X.PropertyChangeMask)
         self.publish(d, root, watched)
         while True:
             ev = d.next_event()
-            if ev.type == X.PropertyNotify and ev.atom in (self.cur, self.names, self.clients, self.wm_desktop, self.layout):
+            if ev.type == X.PropertyNotify and ev.atom in (self.cur, self.names, self.clients, self.wm_desktop, self.layout,
+                                                           self.wm_name, self.active):
                 time.sleep(0.02)  # let a burst of changes land, then read once
                 while d.pending_events():
                     d.next_event()
@@ -496,7 +500,11 @@ class Workspaces(threading.Thread):
             layout = root.get_full_property(self.layout, self.utf8).value.decode()
         except Exception:
             layout = ""
-        occupied = set()
+        try:
+            active = int(root.get_full_property(self.active, Xatom.WINDOW).value[0])
+        except Exception:
+            active = 0
+        occupied, windows = set(), []
         for c in clients:
             w = d.create_resource_object("window", c)
             try:
@@ -504,11 +512,18 @@ class Workspaces(threading.Thread):
                     w.change_attributes(event_mask=X.PropertyChangeMask, onerror=lambda *_: None)
                     watched.add(c)
                 p = w.get_full_property(self.wm_desktop, Xatom.CARDINAL)
-                if p:
-                    occupied.add(int(p.value[0]))
+                if not p:
+                    continue
+                desk = int(p.value[0])
+                occupied.add(desk)
+                t = w.get_full_property(self.wm_name, self.utf8)
+                title = t.value.decode(errors="replace") if t else (w.get_wm_name() or "")
+                cls = w.get_wm_class()
+                windows.append({"id": int(c), "desk": desk, "title": title,
+                                "class": (cls[1] if cls else "").lower()})
             except Exception:
                 pass  # closed while we looked
-        GLib.idle_add(self.on_change, names, cur, occupied, layout)
+        GLib.idle_add(self.on_change, names, cur, occupied, layout, windows, active)
 
 
 def follow(cmd, on_line):
@@ -2131,11 +2146,137 @@ def read_notifications():
     return items
 
 
+APP_ICONS = {  # window class -> nerd font glyph
+    "firefox": "\U000F0239", "zen": "\U000F0239", "alacritty": "\uF120", "chromium": "\uF268",
+    "google-chrome": "\uF268", "spotify": "\U000F04C7", "discord": "\U000F066F", "code": "\U000F0A1E",
+    "thunar": "\U000F024B", "nautilus": "\U000F024B", "pavucontrol": "\U000F057E", "mpv": "\uF144",
+    "vlc": "\U000F057C", "obsidian": "\U000F082E", "steam": "\uF1B6", "telegramdesktop": "\uF2C6",
+    "gimp": "\uF338", "libreoffice": "\U000F0219", "zathura": "\uF1C1", "keepassxc": "\U000F030B",
+}
+
+
+class Thumb(Gtk.DrawingArea):
+    """a snapshot of a workspace with rounded corners, or a note when there is none"""
+
+    def __init__(self, w, h, on_click):
+        super().__init__()
+        self.w, self.h, self.pix, self.note = w, h, None, ""
+        self.set_size_request(w, h)
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.connect("button-press-event", lambda *_: on_click())
+        self.connect("draw", self._draw)
+
+    def set(self, pix, note=""):
+        self.pix, self.note = pix, note
+        self.queue_draw()
+
+    def _draw(self, _w, cr):
+        r = 10
+        cr.new_sub_path()
+        cr.arc(self.w - r, r, r, -math.pi / 2, 0)
+        cr.arc(self.w - r, self.h - r, r, 0, math.pi / 2)
+        cr.arc(r, self.h - r, r, math.pi / 2, math.pi)
+        cr.arc(r, r, r, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+        if self.pix:
+            cr.save()
+            cr.clip()
+            Gdk.cairo_set_source_pixbuf(cr, self.pix, 0, 0)
+            cr.paint()
+            cr.restore()
+            return
+        cr.set_source_rgba(*rgba(CARD, CARD_ALPHA))
+        cr.fill()
+        cr.set_source_rgba(*rgba(DIM))
+        cr.select_font_face(FONT)
+        cr.set_font_size(12)
+        e = cr.text_extents(self.note)
+        cr.move_to((self.w - e.width) / 2 - e.x_bearing, (self.h - e.height) / 2 - e.y_bearing)
+        cr.show_text(self.note)
+
+
+class WorkspacePeek(Popup):
+    """slides out of the left bar beside a workspace dot: a snapshot of that
+    workspace and the windows open on it. click a window to go to it"""
+
+    W = 344
+    THUMB_W = 312
+
+    def __init__(self, screen, keep_open, on_switch):
+        sx, sy, sw, sh = screen
+        self.sh = sh
+        self.thumb_h = round(self.THUMB_W * (sh - 2 * EDGE) / (sw - BAR - EDGE))
+        super().__init__("MellowLeft", (BAR, 0, self.W, 200), keep_open)
+        self.on_switch = on_switch
+        self.name = None
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        col.set_margin_start(16)
+        col.set_margin_end(16)
+        col.set_margin_top(FLARE + 12)
+        col.set_margin_bottom(FLARE + 12)
+        self.col = col
+        self.title, self.count = label("", "bold", xalign=0), label("", "dim", "small")
+        head = Gtk.Box()
+        head.pack_start(self.title, False, False, 0)
+        head.pack_end(self.count, False, False, 0)
+        self.thumb = Thumb(self.THUMB_W, self.thumb_h, lambda: self._go(None))
+        self.rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        col.pack_start(head, False, False, 0)
+        col.pack_start(self.thumb, False, False, 0)
+        col.pack_start(self.rows, False, False, 0)
+        self.add(col)
+
+    def paint(self, cr):
+        hanging_panel(cr, "left", 0, FLARE, self.rect[3] - 2 * FLARE, self.W)
+
+    def show_ws(self, name, y_mid, windows, active, snap, current):
+        self.name = name
+        self.title.set_text(f"Workspace {name}" + ("  ·  here now" if current else ""))
+        self.count.set_text(f"{len(windows)} window{'s' * (len(windows) != 1)}" if windows else "")
+        self.thumb.set(snap if windows else None,
+                       "nothing open here" if not windows else "no snapshot yet")
+        for ch in self.rows.get_children():
+            self.rows.remove(ch)
+        for w in windows:
+            glyph = APP_ICONS.get(w["class"], "\uF2D0")
+            row = box(False, 10, label(glyph, "icon", "accent" if w["id"] == active else "dim"),
+                      label(w["title"] or w["class"], *(["bold"] if w["id"] == active else []),
+                            xalign=0, ellipsize=True, width=34))
+            b = button(row, lambda i=w["id"]: self._go(i), "row")
+            self.rows.pack_start(b, False, False, 0)
+        self.col.show_all()
+        h = self.col.get_preferred_height()[1]
+        top = EDGE + FLARE  # keep clear of the frame's rounded corners
+        y = int(max(top, min(self.sh - top - h, y_mid - h / 2)))
+        self.rect = (BAR, y, self.W, h)
+        self.set_size_request(self.W, h)
+        self.resize(self.W, h)
+        self.move(BAR, y)
+        if self.get_realized():
+            self._shape()
+        self.queue_draw()
+
+    def _go(self, window):
+        self.close()
+        if window:
+            spawn(f"xdotool windowactivate {window}")
+        elif self.name:
+            self.on_switch(self.name)
+
+
 class LeftBar(Strip):
-    def __init__(self, screen, toggle_dashboard, toggle_sidebar):
+    SNAP_EVERY = 4  # seconds between snapshots of the workspace on screen
+
+    def __init__(self, screen, toggle_dashboard, toggle_sidebar, others_open=lambda: False):
         sx, sy, sw, sh = screen
         super().__init__((0, 0, BAR, sh), {"left": BAR})
+        self.screen = screen
         self.names, self.current, self.occupied = [], 0, set()
+        self.windows, self.active, self.cur_name = [], 0, None
+        self.snaps = {}  # workspace -> its last snapshot, kept in memory only
+        self.others_open = others_open
+        self.peek = WorkspacePeek(screen, self._over_dots, self.switch)
+        self._hovered, self._hover_timer = None, None
 
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         col.set_margin_top(10)
@@ -2159,9 +2300,19 @@ class LeftBar(Strip):
             b.set_halign(Gtk.Align.CENTER)
             b.set_tooltip_text(f"workspace {name}")
             b.connect("clicked", lambda _b, n=name: self.switch(n))
+            b.set_has_tooltip(False)  # the peek panel says it all
             self.ws[name] = b
             self.ws_box.pack_start(b, False, False, 0)
-        col.pack_start(self.ws_box, False, False, 0)
+        # hovering anywhere across the bar at a dot's height counts: the dots
+        # themselves are too small to aim at
+        dots = Gtk.EventBox()
+        dots.set_size_request(BAR, -1)
+        dots.add(self.ws_box)
+        dots.add_events(Gdk.EventMask.POINTER_MOTION_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        dots.connect("motion-notify-event", lambda _w, e: self._hover_at(e.y_root))
+        dots.connect("leave-notify-event", self._dots_left)
+        self.dots = dots
+        col.pack_start(dots, False, False, 0)
 
         # which layout the current workspace uses; click to cycle
         self.layout = label("", "icon", "dim")
@@ -2193,6 +2344,7 @@ class LeftBar(Strip):
         clock.set_margin_bottom(10)
 
         Workspaces(self._on_workspaces).start()
+        GLib.timeout_add(self.SNAP_EVERY * 1000, lambda: self._snapshot() or True)
         follow("pactl subscribe", self._on_pulse)
         self._vol_pending = False
         self._clock()
@@ -2209,8 +2361,73 @@ class LeftBar(Strip):
 
     LAYOUT_ICONS = {"grid": "\U000F0570", "tall": "\U000F0574", "wide": "\U000F0BCB", "full": "\U000F0293"}
 
-    def _on_workspaces(self, names, current, occupied, layout):
+    # workspace peek -----------------------------------------------------------
+
+    def _snapshot(self):
+        """remember what the workspace on screen looks like. windows on other
+        workspaces are not drawn (x11 unmaps them), so this is how the peek can
+        show them: as they were when you last looked"""
+        if not self.cur_name or self.peek.get_visible() or self.others_open():
+            return
+        sx, sy, sw, sh = self.screen
+        w, h = sw - BAR - EDGE, sh - 2 * EDGE
+        pix = Gdk.pixbuf_get_from_window(Gdk.get_default_root_window(), BAR, EDGE, w, h)
+        if pix:
+            self.snaps[self.cur_name] = pix.scale_simple(WorkspacePeek.THUMB_W, self.peek.thumb_h,
+                                                         GdkPixbuf.InterpType.BILINEAR)
+
+    def _over_dots(self, x, y):
+        """keeps the peek open while the pointer is on the workspace dots"""
+        alloc = self.dots.get_allocation()
+        _, top = self.dots.translate_coordinates(self, 0, 0)
+        return 0 <= x < BAR and top - 6 <= y < top + alloc.height + 6
+
+    def _hover_at(self, y_root):
+        """the workspace whose dot is nearest the pointer's height"""
+        best, dist = None, 1e9
+        for name, b in self.ws.items():
+            _, y = b.translate_coordinates(self, 0, 0)
+            d = abs(y + b.get_allocated_height() / 2 - y_root)
+            if d < dist:
+                best, dist = name, d
+        if best and best != self._hovered:
+            self._hover(best)
+
+    def _dots_left(self, _w, ev):
+        if ev.detail != Gdk.NotifyType.INFERIOR:  # moving onto a dot is not leaving
+            self._hovered = None
+
+    def _hover(self, name):
+        self._hovered = name
+        if self.peek.get_visible():
+            self._peek(name)  # already open: follow the pointer from dot to dot
+            return
+        if self._hover_timer:
+            GLib.source_remove(self._hover_timer)
+        self._hover_timer = GLib.timeout_add(220, self._hover_open, name)
+
+    def _hover_open(self, name):
+        self._hover_timer = None
+        if self._hovered == name:
+            self._snapshot()  # so the workspace you are on is shown as it is now
+            self._peek(name)
+            self.peek.open()
+        return False
+
+    def _peek(self, name):
+        b = self.ws[name]
+        _, y = b.translate_coordinates(self, 0, 0)
+        idx = self.names.index(name) if name in self.names else -1
+        wins = [w for w in self.windows if w["desk"] == idx]
+        self.peek.show_ws(name, y + b.get_allocated_height() / 2, wins, self.active,
+                          self.snaps.get(name), name == self.cur_name)
+
+    def _on_workspaces(self, names, current, occupied, layout, windows, active):
         self.names = names
+        self.windows, self.active = windows, active
+        self.cur_name = names[current] if current < len(names) else None
+        if self.peek.get_visible() and self.peek.name:
+            self._peek(self.peek.name)
         self.layout.set_text(self.LAYOUT_ICONS.get(layout, "\U000F0570"))
         self.layout_btn.set_tooltip_text(f"layout: {layout or '?'} (click to change)")
         cur = names[current] if current < len(names) else None
@@ -2303,7 +2520,8 @@ class Shell:
         right_zone = self.right.rect
         self.sidebar = Sidebar(screen, lambda x, y: False)
         self.volume = Volume(screen, lambda x, y: in_rect(x, y, right_zone) and not self.sidebar.get_visible())
-        self.bar = LeftBar(screen, self.dashboard.toggle, self.sidebar.toggle)
+        self.bar = LeftBar(screen, self.dashboard.toggle, self.sidebar.toggle,
+                           lambda: any(p.get_visible() for p in (self.dashboard, self.sidebar, self.volume)))
 
         # hover the middle of the top edge -> dashboard
         # hover the right edge -> volume; stay there -> sidebar
