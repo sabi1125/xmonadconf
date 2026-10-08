@@ -60,8 +60,8 @@ BAR = 40        # left bar width
 EDGE = 8        # frame thickness on the other three sides
 FLARE = 16      # radius of the concave curves where pieces meet the frame
 ROUND = 18      # radius of the outer corners of panels
-ALPHA = 0.7    # opacity of the frame and panels; picom blurs what shows through
-CARD_ALPHA = 0.55  # cards inside the panels, on top of that
+ALPHA = 1.0    # opacity of the frame and panels (below 1, picom blurs what shows through)
+CARD_ALPHA = 1.0  # cards inside the panels, on top of that
 PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
