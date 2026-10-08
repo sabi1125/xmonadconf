@@ -65,9 +65,9 @@ PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
 
 # everforest dark (hard), to match the rest of the rice
-FRAME = "#1e2326"
-CARD = "#272e33"
-CARD_HI = "#2e383c"
+FRAME = "#171c1f"
+CARD = "#1e2326"
+CARD_HI = "#272e33"
 FG = "#d3c6aa"
 DIM = "#9da9a0"
 FAINT = "#4f5b58"
@@ -1539,7 +1539,7 @@ class Dashboard(Popup):
                        label("the terminal needs vte3:  sudo pacman -S vte3", "dim"), cls="term")
         self.term = term = Vte.Terminal()
         term.set_font(Pango.FontDescription(f"{FONT} 11"))
-        palette = ["#272e33", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#9da9a0",
+        palette = ["#1e2326", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#9da9a0",
                    "#859289", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#d3c6aa"]
         colors = []
         for c in palette:
