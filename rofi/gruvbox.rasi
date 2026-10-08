@@ -17,7 +17,7 @@ configuration {
     bg-alt:  #2c2c2e;
     fg:      #f2f2f7;
     fg-dim:  #636366;
-    accent:  #e5e5ea;
+    accent:  #d6cfbf;
 
     background-color: transparent;
     text-color:       @fg;
