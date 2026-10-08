@@ -60,6 +60,7 @@ BAR = 40        # left bar width
 EDGE = 8        # frame thickness on the other three sides
 FLARE = 16      # radius of the concave curves where pieces meet the frame
 ROUND = 18      # radius of the outer corners of panels
+PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
 
@@ -1258,6 +1259,7 @@ class Dashboard(Popup):
             tabs.pack_start(t, True, True, 0)
         root.pack_start(tabs, False, False, 0)
         root.pack_start(self.stack, True, True, 0)
+        self.stack.set_size_request(-1, PAGE_H)
         self.show_tab("Dashboard")
         self._fit(root)
         media.listeners.append(self._on_media)
@@ -1510,7 +1512,10 @@ class Dashboard(Popup):
         row2.pack_start(storage, True, True, 0)
         row2.pack_start(net, True, True, 0)
         row2.pack_start(memory, True, True, 0)
-        return box(True, 8, row1, row2)
+        page = box(True, 8, row1, row2)
+        for row in (row1, row2):
+            page.set_child_packing(row, True, True, 0, Gtk.PackType.START)
+        return page
 
     def _next_disk(self):
         self.disks = disks()
