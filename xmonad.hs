@@ -23,19 +23,19 @@ import System.Exit (exitSuccess)
 import qualified XMonad.StackSet as W
 
 ------------------------------------------------------------------------
--- colors (kanagawa dragon; names kept from gruvbox)
+-- colors (everforest dark hard; names kept from gruvbox)
 
 bg0h, bg0, bg1, bg3, fg1, fg2, fg4, gray, yellow, red :: String
-bg0h   = "#000000"
-bg0    = "#000000"
-bg1    = "#1a1a1a"
-bg3    = "#625e5a"
-fg1    = "#c5c9c5"
-fg2    = "#c8c093"
-fg4    = "#a6a69c"
-gray   = "#737c73"
-yellow = "#c4b28a"
-red    = "#c4746e"
+bg0h   = "#1e2326"
+bg0    = "#272e33"
+bg1    = "#2e383c"
+bg3    = "#4f5b58"
+fg1    = "#d3c6aa"
+fg2    = "#d3c6aa"
+fg4    = "#9da9a0"
+gray   = "#7a8478"
+yellow = "#a7c080"
+red    = "#e67e80"
 
 ------------------------------------------------------------------------
 -- basics

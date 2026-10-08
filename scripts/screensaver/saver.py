@@ -275,12 +275,12 @@ def main(scr):
     curses.curs_set(0)
     curses.use_default_colors()
     rich = curses.COLORS >= 256
-    curses.init_pair(1, curses.COLOR_YELLOW, -1)   # clock     #c4b28a
+    curses.init_pair(1, curses.COLOR_YELLOW, -1)   # clock     #a7c080
     curses.init_pair(2, curses.COLOR_WHITE, -1)    # quote     (fg)
-    curses.init_pair(3, 8, -1)                     # date/label #7a8382
-    curses.init_pair(4, 14, -1)                    # led low   #7aa89f
-    curses.init_pair(5, curses.COLOR_YELLOW, -1)   # led mid   #c4b28a
-    curses.init_pair(6, 166 if rich else 1, -1)    # led high  ~#b6927b
+    curses.init_pair(3, 8, -1)                     # date/label #859289
+    curses.init_pair(4, 14, -1)                    # led low   #83c092
+    curses.init_pair(5, curses.COLOR_YELLOW, -1)   # led mid   #a7c080
+    curses.init_pair(6, 166 if rich else 1, -1)    # led high  ~#e69875
     curses.init_pair(7, 237 if rich else 0, -1)    # led off / hints
     curses.init_pair(8, 14, -1)                    # play button
     # clicks only (no motion), so the mouse can travel to the buttons

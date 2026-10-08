@@ -64,15 +64,15 @@ PAGE_H = 316    # height of the pages in the top panel (below the tabs)
 
 FONT = "JetBrainsMono Nerd Font Propo"  # Propo: icons keep their real shape
 
-# kanagawa dragon, to match the rest of the rice
-FRAME = "#000000"
-CARD = "#0e0e0e"
-CARD_HI = "#1a1a1a"
-FG = "#c5c9c5"
-DIM = "#a6a69c"
-FAINT = "#625e5a"
-ACCENT = "#c4b28a"
-RED = "#c4746e"
+# everforest dark (hard), to match the rest of the rice
+FRAME = "#1e2326"
+CARD = "#272e33"
+CARD_HI = "#2e383c"
+FG = "#d3c6aa"
+DIM = "#9da9a0"
+FAINT = "#4f5b58"
+ACCENT = "#a7c080"
+RED = "#e67e80"
 
 WORKSPACES = ["1", "2", "3", "4", "5"]  # xmonad.hs myWorkspaces
 WEATHER_URL = "https://wttr.in/?format=j1"  # location from your IP
@@ -1539,8 +1539,8 @@ class Dashboard(Popup):
                        label("the terminal needs vte3:  sudo pacman -S vte3", "dim"), cls="term")
         self.term = term = Vte.Terminal()
         term.set_font(Pango.FontDescription(f"{FONT} 11"))
-        palette = ["#000000", "#c4746e", "#8a9a7b", "#c4b28a", "#8ba4b0", "#a292a3", "#8ea4a2", "#c8c093",
-                   "#737c73", "#e46876", "#87a987", "#e6c384", "#7fb4ca", "#938aa9", "#7aa89f", "#c5c9c5"]
+        palette = ["#272e33", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#9da9a0",
+                   "#859289", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#d3c6aa"]
         colors = []
         for c in palette:
             g = Gdk.RGBA()

@@ -21,34 +21,33 @@ unfocused_hollow = true
 save_to_clipboard = true
 
 [colors.primary]
-background = "#000000"
-foreground = "#c5c9c5"
+background = "#1e2326"
+foreground = "#d3c6aa"
 
 [colors.cursor]
-text = "#000000"
-cursor = "#c4b28a"
+text = "#1e2326"
+cursor = "#dbbc7f"
 
 [colors.selection]
 text = "CellForeground"
-background = "#2d4f67"
+background = "#2e383c"
 
-# kanagawa dragon
 [colors.normal]
-black   = "#000000"
-red     = "#c4746e"
-green   = "#8a9a7b"
-yellow  = "#c4b28a"
-blue    = "#8ba4b0"
-magenta = "#a292a3"
-cyan    = "#8ea4a2"
-white   = "#c8c093"
+black   = "#272e33"
+red     = "#e67e80"
+green   = "#a7c080"
+yellow  = "#dbbc7f"
+blue    = "#7fbbb3"
+magenta = "#d699b6"
+cyan    = "#83c092"
+white   = "#9da9a0"
 
 [colors.bright]
-black   = "#737c73"
-red     = "#e46876"
-green   = "#87a987"
-yellow  = "#e6c384"
-blue    = "#7fb4ca"
-magenta = "#938aa9"
-cyan    = "#7aa89f"
-white   = "#c5c9c5"
+black   = "#859289"
+red     = "#e67e80"
+green   = "#a7c080"
+yellow  = "#dbbc7f"
+blue    = "#7fbbb3"
+magenta = "#d699b6"
+cyan    = "#83c092"
+white   = "#d3c6aa"
