@@ -123,7 +123,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 
 .cal-head {{ font-weight: bold; }}
 .cal-dow {{ color: {DIM}; font-size: 11px; }}
-.cal-day {{ min-width: 28px; min-height: 19px; font-size: 11px; }}
+.cal-day {{ min-width: 28px; min-height: 21px; font-size: 11px; }}
 .cal-dow {{ font-size: 10px; }}
 .cal-nav {{ min-width: 22px; min-height: 20px; }}
 .cal-other {{ color: {FAINT}; }}
@@ -723,7 +723,7 @@ class Calendar(Gtk.Box):
         head.set_center_widget(self.title)
         head.pack_end(button("\U000F0142", lambda: self.shift(1), "cal-nav"), False, False, 0)
         self.pack_start(head, False, False, 0)
-        self.grid = Gtk.Grid(column_homogeneous=True, row_spacing=2)
+        self.grid = Gtk.Grid(column_homogeneous=True, row_spacing=4)
         self.pack_start(self.grid, False, False, 0)
         self.render()
 
@@ -1339,12 +1339,12 @@ class Dashboard(Popup):
         g.attach(fill(cal, v=True), 1, 1, 1, 1)
 
         # rings
-        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 52), Ring("\U000F035B", 52), Ring("\U000F02CA", 52)
+        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 56), Ring("\U000F035B", 56), Ring("\U000F02CA", 56)
         rings = box(True, 8, self.d_cpu, self.d_mem, self.d_disk, cls="card")
         g.attach(fill(rings, h=False, v=True), 2, 0, 1, 2)
 
         # now playing
-        self.m_art = Art(68)
+        self.m_art = Art(78)
         self.m_title = label("Nothing playing", "bold", ellipsize=True, width=18)
         self.m_artist = label("", "dim", "small", ellipsize=True, width=20)
         self.m_play = label("\U000F040A", "icon")
