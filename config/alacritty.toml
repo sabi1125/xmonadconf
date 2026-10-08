@@ -21,21 +21,21 @@ unfocused_hollow = true
 save_to_clipboard = true
 
 [colors.primary]
-background = "#0c1012"
+background = "#111618"
 foreground = "#d3c6aa"
 
 [colors.cursor]
-text = "#0c1012"
+text = "#111618"
 cursor = "#dbbc7f"
 
 [colors.selection]
 text = "CellForeground"
-background = "#171c1f"
+background = "#1e2326"
 
 [colors.normal]
-black   = "#111618"
-red     = "#e67e80"
-green   = "#a7c080"
+black   = "#171c1f"
+red     = "#ca6f71"
+green   = "#93a971"
 yellow  = "#dbbc7f"
 blue    = "#7fbbb3"
 magenta = "#d699b6"
@@ -44,8 +44,8 @@ white   = "#9da9a0"
 
 [colors.bright]
 black   = "#859289"
-red     = "#e67e80"
-green   = "#a7c080"
+red     = "#ca6f71"
+green   = "#93a971"
 yellow  = "#dbbc7f"
 blue    = "#7fbbb3"
 magenta = "#d699b6"

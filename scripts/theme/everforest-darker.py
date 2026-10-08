@@ -6,8 +6,9 @@ import sys
 
 # ladder, darkest first; below #1e2326 it is extended at the same step size
 LADDER = ["0c1012", "111618", "171c1f", "1e2326", "272e33", "2e383c", "374145", "414b50", "495156"]
-STEPS = int(sys.argv.pop(1)) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 1
-MAP = {c: LADDER[i - STEPS] for i, c in enumerate(LADDER) if i - STEPS >= 0}
+# steps to go darker; negative goes lighter
+STEPS = int(sys.argv.pop(1)) if len(sys.argv) > 1 and sys.argv[1].lstrip("-").isdigit() else 1
+MAP = {c: LADDER[i - STEPS] for i, c in enumerate(LADDER) if 0 <= i - STEPS < len(LADDER)}
 
 for path in sys.argv[1:]:
     with open(path) as f:
