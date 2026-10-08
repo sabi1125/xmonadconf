@@ -4,9 +4,8 @@
 import XMonad
 import XMonad.Actions.WithAll (killAll)
 import XMonad.Hooks.EwmhDesktops (ewmh, ewmhFullscreen)
+import XMonad.Hooks.ManageDocks (avoidStruts, docks)
 import XMonad.Hooks.ManageHelpers (doCenterFloat, doFullFloat, isDialog)
-import XMonad.Hooks.StatusBar
-import XMonad.Hooks.StatusBar.PP
 import XMonad.Layout.NoBorders (Ambiguity (OnlyScreenFloat), lessBorders)
 import XMonad.Layout.Renamed (Rename (Replace), renamed)
 import XMonad.Layout.Spacing (Border (..), spacingRaw)
@@ -52,12 +51,13 @@ rofi :: String
 rofi = "rofi -theme " ++ confDir ++ "/rofi/gruvbox.rasi"
 
 ------------------------------------------------------------------------
--- layouts: 8px gaps everywhere, even with a single window.
--- only real fullscreen (F11, videos) goes edge-to-edge and borderless.
+-- layouts: windows sit inside the mellow frame (avoidStruts) with 8px gaps
+-- everywhere, even with a single window. only real fullscreen (F11, videos)
+-- goes edge-to-edge and borderless, covering the frame.
 
-myLayout = lessBorders OnlyScreenFloat . gaps . toggleLayouts full $ tall ||| wide ||| full
+myLayout = avoidStruts . lessBorders OnlyScreenFloat . gaps . toggleLayouts full $ tall ||| wide ||| full
   where
-    gaps = spacingRaw False (Border 8 8 8 8) True (Border 8 8 8 8) True
+    gaps = spacingRaw False (Border 4 4 4 4) True (Border 4 4 4 4) True
     tall = renamed [Replace "tall"] $ Tall 1 (3 / 100) (1 / 2)
     wide = renamed [Replace "wide"] . Mirror $ Tall 1 (3 / 100) (1 / 2)
     full = renamed [Replace "full"] Full
@@ -114,12 +114,12 @@ myStartup = do
   spawnOnce "$HOME/.local/bin/hidecursor"  -- hide the cursor while typing (~/.local/src/hidecursor)
   spawnOnce ("clipcatd --replace --config " ++ confDir ++ "/config/clipcat/clipcatd.toml")  -- clipboard history
   spawnOnce "fcitx5 -d --replace"  -- input method: Ctrl+Space toggles English/Japanese (hazkey)
-  -- bar flares: re-run on every restart so they follow the xmobar positions
-  spawn ("pkill -f '^python3 .*fillets.py'; python3 " ++ confDir ++ "/scripts/bar/fillets.py")
+  -- the shell: frame, left bar, hover panels (shell/mellow.py). restarted with xmonad
+  spawn ("pkill -f '^python3 .*mellow.py'; python3 " ++ confDir ++ "/shell/mellow.py")
   -- screen never blanks; clock + quotes screensaver after 5 idle minutes
   spawn ("pkill -f '^python3 .*screensaver/idle.py'; python3 " ++ confDir ++ "/scripts/screensaver/idle.py")
-  -- hover a workspace dot to peek at its windows
-  spawn ("pkill -f '^python3 .*ws-peek.py'; python3 " ++ confDir ++ "/scripts/bar/ws-peek.py")
+  -- the old xmobar helpers, in case they are still running from before mellow
+  spawn "pkill -f '^python3 .*(fillets|ws-peek|media-card).py'"
 
 ------------------------------------------------------------------------
 -- actions
@@ -162,6 +162,10 @@ myKeys =
     -- layout
   , ("M-f",          sendMessage ToggleLayout)
 
+    -- shell panels (they also open by hovering the top / right edge)
+  , ("M-a",          spawn "pkill -USR1 -f '^python3 .*mellow.py'")  -- dashboard
+  , ("M-S-a",        spawn "pkill -USR2 -f '^python3 .*mellow.py'")  -- notifications + session
+
     -- session
   , ("M-S-r",        spawn "xmonad --recompile && xmonad --restart")
   , ("M-S-e",        powerMenu)
@@ -188,49 +192,13 @@ myKeys =
   ]
 
 ------------------------------------------------------------------------
--- bar: three floating islands
---   left   workspaces as clickable dots + layout name (click to cycle)
---   center now playing / date + clock
---   right  cpu, ram, network, volume, do-not-disturb, power
-
-myPP :: PP
-myPP =
-  filterOutWsPP [scratchpadWorkspaceTag] $
-    def
-      { ppCurrent         = dot yellow "●"
-      , ppVisible         = dot fg4 "●"
-      , ppHidden          = dot fg4 "●"
-      , ppHiddenNoWindows = dot bg3 "○"
-      , ppUrgent          = dot red "●"
-      , ppWsSep           = "  "
-      , ppSep             = "    "
-      , ppLayout          = xmobarAction "xdotool key super+space" "1"
-                              . xmobarColor gray "" . last . words
-      , ppOrder           = \(ws : l : _) -> [ws, l]
-        -- only show the configured workspaces (hides leftovers from an old session)
-      , ppSort            = (. filter ((`elem` myWorkspaces) . W.tag)) <$> ppSort def
-      }
-  where
-    dot c glyph ws = xmobarAction ("xdotool key super+" ++ ws) "1" (xmobarColor c "" glyph)
-
-mySB :: StatusBarConfig
-mySB =
-  statusBarProp (xmobar "left") (pure myPP)
-    <> statusBarGeneric (xmobar "center") mempty
-    -- right side: one floating pill per status item
-    <> foldMap (\p -> statusBarGeneric (xmobar ("pill-" ++ p)) mempty)
-         ["ime", "net", "vol", "dnd", "power"]
-  where
-    xmobar name = "xmobar " ++ confDir ++ "/xmobar/" ++ name ++ ".rc"
-
-------------------------------------------------------------------------
 
 main :: IO ()
 main =
   xmonad
     . ewmhFullscreen
     . ewmh
-    . withEasySB mySB defToggleStrutsKey
+    . docks
     $ def
       { terminal           = myTerminal
       , modMask            = mod4Mask
