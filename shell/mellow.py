@@ -1187,7 +1187,7 @@ class ArtProgress(Art):
         cr.stroke()
         if self.frac > 0.002:
             # played: a wave riding on the ring, same wavelength as the media bar
-            cr.set_source_rgba(*rgba(ACCENT))
+            cr.set_source_rgba(*rgba(FG))
             steps = max(2, int((end - start) * r / 1.5))
             for i in range(steps + 1):
                 a = start + (end - start) * i / steps
