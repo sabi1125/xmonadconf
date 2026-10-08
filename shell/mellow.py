@@ -94,7 +94,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 
 .icon {{ font-size: 16px; }}
 .big {{ font-size: 22px; }}
-.huge {{ font-size: 40px; font-weight: bold; }}
+.huge {{ font-size: 32px; font-weight: bold; }}
 .dim, .dim * {{ color: {DIM}; }}
 .faint {{ color: {FAINT}; }}
 .bold {{ font-weight: bold; }}
@@ -115,15 +115,15 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .dot {{ color: {ACCENT}; font-size: 8px; }}
 
 /* panels */
-.card {{ background: {CARD}; border-radius: 14px; padding: 12px; }}
-.tab {{ padding: 6px 14px; border-radius: 10px; }}
+.card {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
+.tab {{ padding: 5px 12px; border-radius: 10px; }}
 .tab label {{ color: {DIM}; }}
 .tab.active label {{ color: {FG}; }}
 .tab.active {{ box-shadow: inset 0 -2px {ACCENT}; border-radius: 10px 10px 2px 2px; }}
 
 .cal-head {{ font-weight: bold; }}
 .cal-dow {{ color: {DIM}; font-size: 11px; }}
-.cal-day {{ min-width: 30px; min-height: 22px; font-size: 11px; }}
+.cal-day {{ min-width: 28px; min-height: 19px; font-size: 11px; }}
 .cal-other {{ color: {FAINT}; }}
 .cal-today {{ background: {ACCENT}; color: {FRAME}; border-radius: 99px; font-weight: bold; }}
 
@@ -141,13 +141,13 @@ scale highlight {{ border-radius: 99px; background: {ACCENT}; }}
 scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box-shadow: none; margin: 0; }}
 
 /* performance page */
-.pcard {{ background: {CARD}; border-radius: 16px; padding: 14px 16px; }}
-.ptitle {{ font-size: 16px; font-weight: bold; }}
-.pbig {{ font-size: 22px; font-weight: bold; }}
+.pcard {{ background: {CARD}; border-radius: 14px; padding: 10px 12px; }}
+.ptitle {{ font-size: 14px; font-weight: bold; }}
+.pbig {{ font-size: 17px; font-weight: bold; }}
 .term {{ background: {CARD}; border-radius: 14px; padding: 10px; }}
 
 /* media page */
-.title {{ font-size: 19px; font-weight: bold; }}
+.title {{ font-size: 17px; font-weight: bold; }}
 .sq {{ min-width: 36px; min-height: 36px; border-radius: 10px; background: {CARD_HI}; }}
 .sq:hover {{ background: alpha({FG}, 0.18); }}
 .bigplay {{ min-width: 78px; min-height: 40px; border-radius: 12px; background: {FG}; }}
@@ -231,6 +231,17 @@ def box(vertical=False, spacing=0, *children, cls=None):
     if cls:
         b.get_style_context().add_class(cls)
     return b
+
+
+def safely(fn):
+    """run fn for a signal handler and keep the handler alive whatever happens:
+    a handler that raises is dropped by glib, and the next signal would kill us"""
+    try:
+        fn()
+    except Exception:
+        import traceback
+        traceback.print_exc()
+    return True
 
 
 def every(seconds, fn):
@@ -848,7 +859,7 @@ class Graph(Gtk.DrawingArea):
     def __init__(self, points=60):
         super().__init__()
         self.down, self.up = [0.0] * points, [0.0] * points
-        self.set_size_request(-1, 64)
+        self.set_size_request(-1, 40)
         self.set_hexpand(True)
         self.connect("draw", self._draw)
 
@@ -1204,7 +1215,7 @@ def fmt_time(s):
 
 
 class Dashboard(Popup):
-    W, H = 800, 330  # the panel below the top edge; grows to fit the content
+    W, H = 720, 240  # the panel below the top edge; grows to fit the content
 
     def __init__(self, screen, media, stats, keep_open):
         sx, sy, sw, sh = screen
@@ -1221,11 +1232,11 @@ class Dashboard(Popup):
         self.weather_at = 0
         self.timers = []
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        root.set_margin_top(EDGE + 6)
-        root.set_margin_bottom(16)
-        root.set_margin_start(FLARE + 16)
-        root.set_margin_end(FLARE + 16)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        root.set_margin_top(EDGE + 4)
+        root.set_margin_bottom(12)
+        root.set_margin_start(FLARE + 10)
+        root.set_margin_end(FLARE + 10)
         self.add(root)
 
         self.stack = Gtk.Stack()
@@ -1238,7 +1249,9 @@ class Dashboard(Popup):
                                   ("Performance", "\U000F04C5", self._performance()),
                                   ("Terminal", "\U000F018D", self._terminal())]:
             self.stack.add_named(page, name)
-            t = button(box(True, 2, label(glyph, "icon"), label(name)), lambda n=name: self.show_tab(n), "tab")
+            inner = box(False, 8, label(glyph, "icon"), label(name))
+            inner.set_halign(Gtk.Align.CENTER)
+            t = button(inner, lambda n=name: self.show_tab(n), "tab")
             self.tabs[name] = t
             tabs.pack_start(t, True, True, 0)
         root.pack_start(tabs, False, False, 0)
@@ -1302,7 +1315,7 @@ class Dashboard(Popup):
         self.w_icon, self.w_temp = label("\U000F0590", "huge"), label("--°", "big", "bold")
         self.w_desc, self.w_more = label("", xalign=0), label("", "dim", "small", xalign=0)
         w = box(False, 12, self.w_icon, box(True, 2, self.w_temp, self.w_desc, self.w_more), cls="card")
-        w.set_size_request(220, -1)
+        w.set_size_request(190, -1)
         g.attach(fill(w), 0, 0, 1, 1)
 
         # clock
@@ -1324,12 +1337,12 @@ class Dashboard(Popup):
         g.attach(fill(cal, v=True), 1, 1, 1, 1)
 
         # rings
-        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 58), Ring("\U000F035B", 58), Ring("\U000F02CA", 58)
+        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 50), Ring("\U000F035B", 50), Ring("\U000F02CA", 50)
         rings = box(True, 8, self.d_cpu, self.d_mem, self.d_disk, cls="card")
         g.attach(fill(rings, h=False, v=True), 2, 0, 1, 2)
 
         # now playing
-        self.m_art = Art(96)
+        self.m_art = Art(76)
         self.m_title = label("Nothing playing", "bold", ellipsize=True, width=18)
         self.m_artist = label("", "dim", "small", ellipsize=True, width=20)
         self.m_play = label("\U000F040A", "icon")
@@ -1341,17 +1354,17 @@ class Dashboard(Popup):
         art = box(False, 0, self.m_art)
         art.set_halign(Gtk.Align.CENTER)
         m = box(True, 8, art, self.m_title, self.m_artist, controls, cls="card")
-        m.set_size_request(190, -1)
+        m.set_size_request(170, -1)
         g.attach(fill(m, v=True), 3, 0, 1, 2)
 
         # the clock card takes what the weather card leaves
-        c.set_size_request(220, -1)
+        c.set_size_request(190, -1)
         for child in (self.c_h, self.c_m):
             child.set_halign(Gtk.Align.CENTER)
         return g
 
     def _media(self):
-        self.p_art = ArtRing(214, 132)
+        self.p_art = ArtRing(176, 108)
         self.p_art.set_valign(Gtk.Align.CENTER)
 
         # middle: what is playing and the controls
@@ -1405,7 +1418,7 @@ class Dashboard(Popup):
         pill = button(box(False, 8, label("\U000F0379", "icon"), self.p_player, label("\U000F0140", "icon")),
                       self.media.next_player, "pill", tooltip="switch player")
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        right.set_size_request(250, -1)
+        right.set_size_request(220, -1)
         right.pack_start(head, False, False, 0)
         right.pack_start(self.l_stack, True, True, 0)
         right.pack_end(pill, False, False, 0)
@@ -1415,19 +1428,19 @@ class Dashboard(Popup):
         page.pack_start(self.p_art, False, False, 0)
         page.pack_start(info, True, True, 0)
         page.pack_start(right, False, False, 0)
-        page.set_size_request(-1, 236)
+        page.set_size_request(-1, 190)
         return page
 
     def _performance(self):
         def chip(title, sub, glyph):
-            ring = Ring(glyph, 46, 3)
+            ring = Ring(glyph, 38, 3)
             name = label(sub, "dim", xalign=0, ellipsize=True, width=28)
             head = box(True, 0, label(title, "ptitle", xalign=0), name)
             head.set_valign(Gtk.Align.CENTER)
             temp = label("--", "small")
             meter = Meter()
-            cookie = Cookie(72)
-            left = box(True, 10, box(False, 12, ring, head))
+            cookie = Cookie(56)
+            left = box(True, 6, box(False, 10, ring, head))
             tbox = Gtk.Box(spacing=6)
             tbox.pack_start(label("\U000F050F", "icon", "dim"), False, False, 0)
             tbox.pack_start(temp, False, False, 0)
@@ -1457,22 +1470,22 @@ class Dashboard(Popup):
         self.disks = disks()
         root_disk = next((d for d, ms in self.disks.items() if "/" in ms), None)
         self.disk = root_disk or next(iter(self.disks), None)
-        self.q_disk_gauge = Gauge(108)
+        self.q_disk_gauge = Gauge(84, 7)
         self.q_disk_text = label("", "dim", xalign=0)
         self.q_disk_name = label("", "bold")
         pill = button(box(False, 8, label("\U000F02CA", "icon"), self.q_disk_name, label("\U000F0140", "icon")),
                       self._next_disk, "pill", tooltip="switch disk")
         info = box(True, 4, label("Storage", "ptitle", xalign=0), self.q_disk_text)
         info.set_valign(Gtk.Align.CENTER)
-        storage = box(True, 10, box(False, 16, self.q_disk_gauge, info), pill, cls="pcard")
+        storage = box(True, 6, box(False, 14, self.q_disk_gauge, info), pill, cls="pcard")
         pill.set_halign(Gtk.Align.CENTER)
 
         # network
         self.net_last = None
         self.q_graph = Graph()
         self.q_down, self.q_up, self.q_total = label("", xalign=1), label("", xalign=1), label("", xalign=1)
-        net = box(True, 6, box(False, 8, label("\U000F04E1", "icon"), label("Network", "ptitle")), cls="pcard")
-        net.pack_start(self.q_graph, False, False, 4)
+        net = box(True, 3, box(False, 8, label("\U000F04E1", "icon"), label("Network", "ptitle")), cls="pcard")
+        net.pack_start(self.q_graph, False, False, 2)
         for glyph, name, val in [("\U000F01DA", "Download", self.q_down), ("\U000F0552", "Upload", self.q_up),
                                  ("\U000F02DA", "Total", self.q_total)]:
             row = Gtk.Box(spacing=8)
@@ -1480,12 +1493,12 @@ class Dashboard(Popup):
             row.pack_start(label(name, "dim"), False, False, 0)
             row.pack_end(val, False, False, 0)
             net.pack_start(row, False, False, 0)
-        net.set_size_request(290, -1)
+        net.set_size_request(260, -1)
 
         # memory
-        self.q_mem_gauge = Gauge(96)
+        self.q_mem_gauge = Gauge(78, 7)
         self.q_mem_text = label("", "small")
-        memory = box(True, 8, box(False, 8, label("\U000F035B", "icon"), label("Memory", "ptitle")),
+        memory = box(True, 4, box(False, 8, label("\U000F035B", "icon"), label("Memory", "ptitle")),
                      self.q_mem_gauge, self.q_mem_text, cls="pcard")
         self.q_mem_gauge.set_halign(Gtk.Align.CENTER)
 
@@ -1493,7 +1506,7 @@ class Dashboard(Popup):
         row2.pack_start(storage, True, True, 0)
         row2.pack_start(net, True, True, 0)
         row2.pack_start(memory, False, False, 0)
-        return box(True, 10, row1, row2)
+        return box(True, 8, row1, row2)
 
     def _next_disk(self):
         self.disks = disks()
@@ -1529,7 +1542,7 @@ class Dashboard(Popup):
         bg.parse(CARD)
         term.set_colors(fg, bg, colors)
         term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
-        term.set_size_request(-1, 236)
+        term.set_size_request(-1, 200)
         term.connect("child-exited", lambda *_: self._spawn_shell())
         self._spawn_shell()
         page = box(False, 0, cls="term")
@@ -1574,9 +1587,6 @@ class Dashboard(Popup):
         self.is_open = False
         self._media_view()
         self._keyboard()
-        if name == "Performance" and hasattr(self, "q_disk_gauge"):
-            self._update_disk()
-            in_thread(read_gpu, self._on_gpu)
         for t in self.timers:
             GLib.source_remove(t)
         self.timers = []
@@ -2180,8 +2190,8 @@ class Shell:
             c.show_all()
             c.get_window().lower()
 
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, lambda: self.dashboard.toggle() or True)
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2, lambda: self.sidebar.toggle() or True)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, lambda: safely(self.dashboard.toggle))
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2, lambda: safely(self.sidebar.toggle))
         for sig in (signal.SIGINT, signal.SIGTERM):
             GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, sig, Gtk.main_quit)
 
