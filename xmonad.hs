@@ -26,9 +26,9 @@ import qualified XMonad.StackSet as W
 -- colors (everforest dark hard; names kept from gruvbox)
 
 bg0h, bg0, bg1, bg3, fg1, fg2, fg4, gray, yellow, red :: String
-bg0h   = "#171c1f"
-bg0    = "#1e2326"
-bg1    = "#272e33"
+bg0h   = "#0c1012"
+bg0    = "#111618"
+bg1    = "#171c1f"
 bg3    = "#4f5b58"
 fg1    = "#d3c6aa"
 fg2    = "#d3c6aa"
