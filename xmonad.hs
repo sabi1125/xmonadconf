@@ -23,19 +23,19 @@ import System.Exit (exitSuccess)
 import qualified XMonad.StackSet as W
 
 ------------------------------------------------------------------------
--- colors (gruvbox dark)
+-- colors (macOS Tahoe dark; names kept from gruvbox)
 
 bg0h, bg0, bg1, bg3, fg1, fg2, fg4, gray, yellow, red :: String
-bg0h   = "#1d2021"
-bg0    = "#282828"
-bg1    = "#3c3836"
-bg3    = "#665c54"
-fg1    = "#ebdbb2"
-fg2    = "#d5c4a1"
-fg4    = "#a89984"
-gray   = "#7c6f64"
-yellow = "#d79921"
-red    = "#cc241d"
+bg0h   = "#141416"
+bg0    = "#1c1c1e"
+bg1    = "#2c2c2e"
+bg3    = "#48484a"
+fg1    = "#f2f2f7"
+fg2    = "#c7c7cc"
+fg4    = "#98989d"
+gray   = "#636366"
+yellow = "#0a84ff"
+red    = "#ff453a"
 
 ------------------------------------------------------------------------
 -- basics
