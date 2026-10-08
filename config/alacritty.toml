@@ -26,7 +26,7 @@ foreground = "#f2f2f7"
 
 [colors.cursor]
 text = "#141416"
-cursor = "#0a84ff"
+cursor = "#e5e5ea"
 
 [colors.selection]
 text = "CellForeground"

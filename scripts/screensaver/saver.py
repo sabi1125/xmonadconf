@@ -275,11 +275,11 @@ def main(scr):
     curses.curs_set(0)
     curses.use_default_colors()
     rich = curses.COLORS >= 256
-    curses.init_pair(1, curses.COLOR_YELLOW, -1)   # clock     #0a84ff
+    curses.init_pair(1, curses.COLOR_YELLOW, -1)   # clock     #e5e5ea
     curses.init_pair(2, curses.COLOR_WHITE, -1)    # quote     (fg)
     curses.init_pair(3, 8, -1)                     # date/label #8e8e93
     curses.init_pair(4, 14, -1)                    # led low   #70d7ff
-    curses.init_pair(5, curses.COLOR_YELLOW, -1)   # led mid   #0a84ff
+    curses.init_pair(5, curses.COLOR_YELLOW, -1)   # led mid   #e5e5ea
     curses.init_pair(6, 166 if rich else 1, -1)    # led high  ~#ff9f0a
     curses.init_pair(7, 237 if rich else 0, -1)    # led off / hints
     curses.init_pair(8, 14, -1)                    # play button

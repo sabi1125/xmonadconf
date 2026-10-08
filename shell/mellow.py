@@ -71,7 +71,7 @@ CARD_HI = "#2c2c30"
 FG = "#f2f2f7"
 DIM = "#98989d"
 FAINT = "#48484a"
-ACCENT = "#0a84ff"
+ACCENT = "#e5e5ea"
 RED = "#ff453a"
 
 WORKSPACES = ["1", "2", "3", "4", "5"]  # xmonad.hs myWorkspaces
@@ -132,7 +132,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 
 .play {{ background: {FG}; border-radius: 99px; min-width: 52px; min-height: 30px; }}
 .play label {{ color: {FRAME}; }}
-.play:hover {{ background: {ACCENT}; }}
+.play:hover {{ background: {DIM}; }}
 .ctl {{ min-width: 30px; min-height: 30px; border-radius: 99px; }}
 
 progressbar trough {{ min-height: 4px; border-radius: 99px; background: {CARD_HI}; }}
@@ -155,7 +155,7 @@ scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box
 .sq:hover {{ background: alpha({FG}, 0.18); }}
 .bigplay {{ min-width: 78px; min-height: 40px; border-radius: 12px; background: {FG}; }}
 .bigplay label {{ color: {FRAME}; font-size: 18px; }}
-.bigplay:hover {{ background: {ACCENT}; }}
+.bigplay:hover {{ background: {DIM}; }}
 .pill {{ background: {CARD_HI}; border-radius: 10px; padding: 6px 12px; }}
 .lyric {{ color: {FAINT}; font-size: 13px; }}
 .lyric.now {{ color: {FG}; font-weight: bold; font-size: 14px; }}
