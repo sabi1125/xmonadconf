@@ -103,7 +103,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .small {{ font-size: 10px; }}
 
 /* left bar */
-.logo {{ font-size: 18px; color: {ACCENT}; min-height: 32px; min-width: 32px; }}
+.logo {{ font-size: 18px; color: {FG}; min-height: 32px; min-width: 32px; }}
 .ws {{
   min-width: 10px; min-height: 10px; border-radius: 99px; margin: 3px 0;
   background: {FAINT}; transition: all 200ms ease;
@@ -128,7 +128,7 @@ button:active {{ background: alpha({FG}, 0.16); }}
 .cal-dow {{ font-size: 10px; }}
 .cal-nav {{ min-width: 22px; min-height: 20px; }}
 .cal-other {{ color: {FAINT}; }}
-.cal-today {{ background: {ACCENT}; color: {FRAME}; border-radius: 99px; font-weight: bold; }}
+.cal-today {{ background: {FG}; color: {FRAME}; border-radius: 99px; font-weight: bold; }}
 
 .play {{ background: {FG}; border-radius: 99px; min-width: 52px; min-height: 30px; }}
 .play label {{ color: {FRAME}; }}
@@ -665,7 +665,7 @@ class Ring(Gtk.Overlay):
         cr.arc(c, c, r, 0, 2 * math.pi)
         cr.stroke()
         if self.frac > 0.005:
-            cr.set_source_rgba(*rgba(ACCENT))
+            cr.set_source_rgba(*rgba(FG))
             cr.arc(c, c, r, -math.pi / 2, -math.pi / 2 + 2 * math.pi * self.frac)
             cr.stroke()
 
@@ -1397,7 +1397,7 @@ class Dashboard(Popup):
         # user
         hostname = socket.gethostname()
         self.u_up = label("", "dim", "small", xalign=0)
-        u = box(False, 18, label("", "huge", "accent"),
+        u = box(False, 18, label("", "huge"),
                 box(True, 2, label(f"{getpass.getuser()}@{hostname}", "bold", xalign=0), self.u_up), cls="card")
         u.get_children()[1].set_valign(Gtk.Align.CENTER)
         g.attach(fill(u), 1, 0, 1, 1)
