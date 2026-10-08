@@ -123,7 +123,9 @@ button:active {{ background: alpha({FG}, 0.16); }}
 
 .cal-head {{ font-weight: bold; }}
 .cal-dow {{ color: {DIM}; font-size: 11px; }}
-.cal-day {{ min-width: 28px; min-height: 19px; font-size: 11px; }}
+.cal-day {{ min-width: 26px; min-height: 16px; font-size: 10px; }}
+.cal-dow {{ font-size: 10px; }}
+.cal-nav {{ min-width: 22px; min-height: 20px; }}
 .cal-other {{ color: {FAINT}; }}
 .cal-today {{ background: {ACCENT}; color: {FRAME}; border-radius: 99px; font-weight: bold; }}
 
@@ -712,16 +714,16 @@ class Art(Gtk.DrawingArea):
 
 class Calendar(Gtk.Box):
     def __init__(self):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         today = datetime.date.today()
         self.year, self.month = today.year, today.month
         self.title = label("", "cal-head")
         head = Gtk.Box()
-        head.pack_start(button("\U000F0141", lambda: self.shift(-1), "ctl"), False, False, 0)
+        head.pack_start(button("\U000F0141", lambda: self.shift(-1), "cal-nav"), False, False, 0)
         head.set_center_widget(self.title)
-        head.pack_end(button("\U000F0142", lambda: self.shift(1), "ctl"), False, False, 0)
+        head.pack_end(button("\U000F0142", lambda: self.shift(1), "cal-nav"), False, False, 0)
         self.pack_start(head, False, False, 0)
-        self.grid = Gtk.Grid(column_homogeneous=True, row_spacing=2)
+        self.grid = Gtk.Grid(column_homogeneous=True, row_spacing=1)
         self.pack_start(self.grid, False, False, 0)
         self.render()
 
@@ -859,7 +861,7 @@ class Graph(Gtk.DrawingArea):
     def __init__(self, points=60):
         super().__init__()
         self.down, self.up = [0.0] * points, [0.0] * points
-        self.set_size_request(-1, 40)
+        self.set_size_request(-1, 30)
         self.set_hexpand(True)
         self.connect("draw", self._draw)
 
@@ -1312,14 +1314,14 @@ class Dashboard(Popup):
             return card
 
         # weather
-        self.w_icon, self.w_temp = label("\U000F0590", "huge"), label("--°", "big", "bold")
-        self.w_desc, self.w_more = label("", xalign=0), label("", "dim", "small", xalign=0)
-        w = box(False, 12, self.w_icon, box(True, 2, self.w_temp, self.w_desc, self.w_more), cls="card")
+        self.w_icon, self.w_temp = label("\U000F0590", "big"), label("--°", "big", "bold")
+        self.w_desc, self.w_more = label("", "small", xalign=0), label("", "dim", "small", xalign=0)
+        w = box(False, 12, self.w_icon, self.w_temp, box(True, 0, self.w_desc, self.w_more), cls="card")
         w.set_size_request(190, -1)
         g.attach(fill(w), 0, 0, 1, 1)
 
         # clock
-        self.c_h, self.c_m, self.c_p = label("", "huge"), label("", "huge"), label("", "dim", "bold")
+        self.c_h, self.c_m, self.c_p = label("", "big", "bold"), label("", "big", "bold"), label("", "dim", "bold")
         c = box(True, 0, self.c_h, label("•••", "accent"), self.c_m, self.c_p, cls="card")
 
         # user
@@ -1337,12 +1339,12 @@ class Dashboard(Popup):
         g.attach(fill(cal, v=True), 1, 1, 1, 1)
 
         # rings
-        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 50), Ring("\U000F035B", 50), Ring("\U000F02CA", 50)
+        self.d_cpu, self.d_mem, self.d_disk = Ring("\U000F0EE0", 46), Ring("\U000F035B", 46), Ring("\U000F02CA", 46)
         rings = box(True, 8, self.d_cpu, self.d_mem, self.d_disk, cls="card")
         g.attach(fill(rings, h=False, v=True), 2, 0, 1, 2)
 
         # now playing
-        self.m_art = Art(76)
+        self.m_art = Art(68)
         self.m_title = label("Nothing playing", "bold", ellipsize=True, width=18)
         self.m_artist = label("", "dim", "small", ellipsize=True, width=20)
         self.m_play = label("\U000F040A", "icon")
@@ -1364,7 +1366,7 @@ class Dashboard(Popup):
         return g
 
     def _media(self):
-        self.p_art = ArtRing(176, 108)
+        self.p_art = ArtRing(160, 100)
         self.p_art.set_valign(Gtk.Align.CENTER)
 
         # middle: what is playing and the controls
@@ -1428,7 +1430,7 @@ class Dashboard(Popup):
         page.pack_start(self.p_art, False, False, 0)
         page.pack_start(info, True, True, 0)
         page.pack_start(right, False, False, 0)
-        page.set_size_request(-1, 190)
+        page.set_size_request(-1, 170)
         return page
 
     def _performance(self):
@@ -1439,13 +1441,13 @@ class Dashboard(Popup):
             head.set_valign(Gtk.Align.CENTER)
             temp = label("--", "small")
             meter = Meter()
-            cookie = Cookie(56)
+            cookie = Cookie(50)
             left = box(True, 6, box(False, 10, ring, head))
             tbox = Gtk.Box(spacing=6)
-            tbox.pack_start(label("\U000F050F", "icon", "dim"), False, False, 0)
+            tbox.pack_start(label("\U000F050F", "dim"), False, False, 0)
             tbox.pack_start(temp, False, False, 0)
+            tbox.pack_start(meter, True, True, 4)
             left.pack_start(tbox, False, False, 0)
-            left.pack_start(meter, False, False, 0)
             left.set_hexpand(True)
             right = box(True, 4, label("Usage", "dim", "small"), cookie)
             right.set_valign(Gtk.Align.CENTER)
@@ -1470,42 +1472,44 @@ class Dashboard(Popup):
         self.disks = disks()
         root_disk = next((d for d, ms in self.disks.items() if "/" in ms), None)
         self.disk = root_disk or next(iter(self.disks), None)
-        self.q_disk_gauge = Gauge(84, 7)
-        self.q_disk_text = label("", "dim", xalign=0)
+        self.q_disk_gauge = Gauge(70, 6)
+        self.q_disk_text = label("", "dim", "small", xalign=0)
         self.q_disk_name = label("", "bold")
-        pill = button(box(False, 8, label("\U000F02CA", "icon"), self.q_disk_name, label("\U000F0140", "icon")),
+        pill = button(box(False, 6, label("\U000F02CA"), self.q_disk_name, label("\U000F0140")),
                       self._next_disk, "pill", tooltip="switch disk")
-        info = box(True, 4, label("Storage", "ptitle", xalign=0), self.q_disk_text)
+        pill.set_halign(Gtk.Align.START)
+        info = box(True, 3, label("Storage", "ptitle", xalign=0), self.q_disk_text, pill)
         info.set_valign(Gtk.Align.CENTER)
-        storage = box(True, 6, box(False, 14, self.q_disk_gauge, info), pill, cls="pcard")
-        pill.set_halign(Gtk.Align.CENTER)
+        storage = box(False, 12, self.q_disk_gauge, info, cls="pcard")
 
-        # network
+        # network: rates on one line, totals since boot in the corner
         self.net_last = None
         self.q_graph = Graph()
-        self.q_down, self.q_up, self.q_total = label("", xalign=1), label("", xalign=1), label("", xalign=1)
-        net = box(True, 3, box(False, 8, label("\U000F04E1", "icon"), label("Network", "ptitle")), cls="pcard")
-        net.pack_start(self.q_graph, False, False, 2)
-        for glyph, name, val in [("\U000F01DA", "Download", self.q_down), ("\U000F0552", "Upload", self.q_up),
-                                 ("\U000F02DA", "Total", self.q_total)]:
-            row = Gtk.Box(spacing=8)
-            row.pack_start(label(glyph, "dim"), False, False, 0)
-            row.pack_start(label(name, "dim"), False, False, 0)
-            row.pack_end(val, False, False, 0)
-            net.pack_start(row, False, False, 0)
-        net.set_size_request(260, -1)
+        self.q_down, self.q_up = label("", "small"), label("", "small")
+        self.q_total = label("", "dim", "small")
+        head = box(False, 8, label("\U000F04E1", "icon"), label("Network", "ptitle"))
+        head.pack_end(self.q_total, False, False, 0)
+        rates = Gtk.Box(spacing=6)
+        rates.pack_start(label("\U000F01DA", "dim"), False, False, 0)
+        rates.pack_start(self.q_down, False, False, 0)
+        rates.pack_end(self.q_up, False, False, 0)
+        rates.pack_end(label("\U000F0552", "dim"), False, False, 0)
+        net = box(True, 4, head, cls="pcard")
+        net.pack_start(self.q_graph, False, False, 0)
+        net.pack_start(rates, False, False, 0)
+        net.set_size_request(250, -1)
 
         # memory
-        self.q_mem_gauge = Gauge(78, 7)
-        self.q_mem_text = label("", "small")
-        memory = box(True, 4, box(False, 8, label("\U000F035B", "icon"), label("Memory", "ptitle")),
-                     self.q_mem_gauge, self.q_mem_text, cls="pcard")
-        self.q_mem_gauge.set_halign(Gtk.Align.CENTER)
+        self.q_mem_gauge = Gauge(70, 6)
+        self.q_mem_text = label("", "dim", "small", xalign=0)
+        info = box(True, 3, box(False, 6, label("\U000F035B", "icon"), label("Memory", "ptitle")), self.q_mem_text)
+        info.set_valign(Gtk.Align.CENTER)
+        memory = box(False, 12, self.q_mem_gauge, info, cls="pcard")
 
         row2 = Gtk.Box(spacing=10)
         row2.pack_start(storage, True, True, 0)
         row2.pack_start(net, True, True, 0)
-        row2.pack_start(memory, False, False, 0)
+        row2.pack_start(memory, True, True, 0)
         return box(True, 8, row1, row2)
 
     def _next_disk(self):
@@ -1542,7 +1546,8 @@ class Dashboard(Popup):
         bg.parse(CARD)
         term.set_colors(fg, bg, colors)
         term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
-        term.set_size_request(-1, 200)
+        term.set_size(80, 8)  # vte asks for 24 rows by default, which would make the whole panel tall
+        term.set_size_request(-1, 180)
         term.connect("child-exited", lambda *_: self._spawn_shell())
         self._spawn_shell()
         page = box(False, 0, cls="term")
@@ -1607,7 +1612,7 @@ class Dashboard(Popup):
             self.q_down.set_text(human(down, rate=True))
             self.q_up.set_text(human(up, rate=True))
         self.net_last = (rx, tx, time.monotonic())
-        self.q_total.set_text(f"↓{human(rx)}  ↑{human(tx)}")  # since boot
+        self.q_total.set_text(f"↓{human(rx)} ↑{human(tx)}")  # since boot
 
         if now.second % 2 == 0 or not self.d_cpu.value.get_text():
             cpu = self.stats.cpu()
@@ -1622,7 +1627,7 @@ class Dashboard(Popup):
             self.q_cpu_temp.set_text(f"{temp:.0f}°C" if temp else "--")
             self.q_cpu_meter.set((temp or 0) / 100)
             self.q_mem_gauge.set(mem)
-            self.q_mem_text.set_text(f"{mu:.1f} GiB / {mt:.1f} GiB")
+            self.q_mem_text.set_text(f"{mu:.1f} / {mt:.1f} GiB")
             if perf:
                 self._update_disk()
                 in_thread(read_gpu, self._on_gpu)
