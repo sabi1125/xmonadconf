@@ -2280,9 +2280,11 @@ class WallpaperPicker(Popup):
     to set it (scripts/wallpaper.sh keeps it across restarts)"""
 
     TW, TH, ROWS = 208, 117, 2
+    TRIGGER = 220  # px of the bottom edge, from the right-hand corner, that open it
 
     def __init__(self, screen, keep_open):
         sx, sy, sw, sh = screen
+        self.sw, self.sh = sw, sh
         self.W = int((sw - BAR - EDGE) * 0.6)
         self.x_end = sw - EDGE - 48  # leave the frame's corner clear
         self.H = self.ROWS * self.TH + (self.ROWS - 1) * 10 + 2 * 16
@@ -2303,9 +2305,9 @@ class WallpaperPicker(Popup):
         self._load()
 
     def zone(self):
-        """the part of the bottom edge that opens it"""
-        x, y, w, h = self.rect
-        return (x + FLARE, y + self.H, self.W, EDGE + 1)
+        """the part of the bottom edge that opens it: just its right-hand end,
+        so passing the mouse along the bottom does not pop it up"""
+        return (self.sw - self.TRIGGER, self.sh - EDGE, self.TRIGGER, EDGE)
 
     def paint(self, cr):
         hanging_panel(cr, "bottom", self.H, FLARE, self.W, self.H)
