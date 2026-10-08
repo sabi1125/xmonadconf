@@ -2276,8 +2276,8 @@ class WallThumb(Thumb):
 
 
 class WallpaperPicker(Popup):
-    """rises from the bottom edge: the wallpapers, as pictures only. click one
-    to set it (scripts/wallpaper.sh keeps it across restarts)"""
+    """rises out of the bottom-right corner: the wallpapers, as pictures only.
+    click one to set it (scripts/wallpaper.sh keeps it across restarts)"""
 
     TW, TH, ROWS = 208, 117, 2
     TRIGGER = 220  # px of the bottom edge, from the right-hand corner, that open it
@@ -2286,9 +2286,10 @@ class WallpaperPicker(Popup):
         sx, sy, sw, sh = screen
         self.sw, self.sh = sw, sh
         self.W = int((sw - BAR - EDGE) * 0.6)
-        self.x_end = sw - EDGE - 48  # leave the frame's corner clear
         self.H = self.ROWS * self.TH + (self.ROWS - 1) * 10 + 2 * 16
-        rect = (self.x_end - self.W - FLARE, sh - EDGE - self.H, self.W + 2 * FLARE, self.H + EDGE)
+        # tucked into the corner: flush with the bottom and right edges, with
+        # room on the left and top for the curves that join it to them
+        rect = (sw - EDGE - self.W - FLARE, sh - EDGE - self.H - FLARE, self.W + FLARE, self.H + FLARE)
         super().__init__("MellowBottom", rect, keep_open)
         self.thumbs = {}
         self.grid = Gtk.Grid(row_spacing=10, column_spacing=10)
@@ -2297,8 +2298,8 @@ class WallpaperPicker(Popup):
         scroll.add(self.grid)
         scroll.connect("scroll-event", self._wheel)
         scroll.set_margin_start(FLARE + 16)
-        scroll.set_margin_end(FLARE + 16)
-        scroll.set_margin_top(16)
+        scroll.set_margin_end(16)
+        scroll.set_margin_top(FLARE + 16)
         scroll.set_margin_bottom(16)
         self.scroll = scroll
         self.add(scroll)
@@ -2310,7 +2311,18 @@ class WallpaperPicker(Popup):
         return (self.sw - self.TRIGGER, self.sh - EDGE, self.TRIGGER, EDGE)
 
     def paint(self, cr):
-        hanging_panel(cr, "bottom", self.H, FLARE, self.W, self.H)
+        x, y, w, h, r = FLARE, FLARE, self.W, self.H, ROUND  # the panel, in window coordinates
+        # body: square where it meets the frame, rounded at the top-left
+        cr.move_to(x, y + r)
+        cr.arc(x + r, y + r, r, math.pi, 3 * math.pi / 2)
+        cr.line_to(x + w, y)
+        cr.line_to(x + w, y + h)
+        cr.line_to(x, y + h)
+        cr.close_path()
+        cr.fill()
+        # curves into the bottom edge (left of it) and the right edge (above it)
+        flare(cr, x - FLARE, y + h - FLARE, x - FLARE, y + h - FLARE)
+        flare(cr, x + w - FLARE, y - FLARE, x + w - FLARE, y - FLARE)
 
     def _wheel(self, _w, ev):
         """the mouse wheel scrolls sideways"""
