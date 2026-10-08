@@ -12,7 +12,7 @@ typeset -gA GB=(
   fg4    '#9da9a0'
   gray   '#7a8478'
   dim    '#4f5b58'
-  yellow '#98971a'
+  yellow '#b8bb26'
   red    '#ca6f71'
   aqua   '#83c092'
   blue   '#7fbbb3'

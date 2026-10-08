@@ -71,7 +71,7 @@ CARD_HI = "#1e2326"
 FG = "#d3c6aa"
 DIM = "#9da9a0"
 FAINT = "#4f5b58"
-ACCENT = "#98971a"
+ACCENT = "#b8bb26"
 RED = "#ca6f71"
 
 WORKSPACES = ["1", "2", "3", "4", "5"]  # xmonad.hs myWorkspaces
