@@ -46,11 +46,6 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, GdkX11, GLib, Gtk, Pango  # noqa: E402,F401
 from Xlib import X, Xatom  # noqa: E402
 
-try:  # the terminal tab needs vte3 (pacman -S vte3)
-    gi.require_version("Vte", "2.91")
-    from gi.repository import Vte  # noqa: E402
-except (ValueError, ImportError):
-    Vte = None
 from Xlib import display as xdisplay  # noqa: E402
 
 # ----------------------------------------------------------------------------
@@ -152,7 +147,6 @@ scale slider {{ min-width: 0; min-height: 0; background: none; border: none; box
 .pcard {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px 12px; }}
 .ptitle {{ font-size: 14px; font-weight: bold; }}
 .pbig {{ font-size: 17px; font-weight: bold; }}
-.term {{ background: alpha({CARD}, {CARD_ALPHA}); border-radius: 14px; padding: 10px; }}
 
 /* media page */
 .title {{ font-size: 17px; font-weight: bold; }}
@@ -1323,7 +1317,6 @@ class Dashboard(Popup):
         super().__init__("MellowTop", self._rect(), keep_open)
         self.media, self.stats = media, stats
         self.is_open = False
-        self.grabbed = False
         self.anim = None
         self.pos, self.pos_at = 0.0, time.monotonic()
         self.lyrics, self.lyrics_key, self.lyric_i = [], None, -2
@@ -1346,8 +1339,7 @@ class Dashboard(Popup):
         self.tabs = {}
         for name, glyph, page in [("Dashboard", "\U000F056E", self._dashboard()),
                                   ("Media", "\U000F075A", self._media()),
-                                  ("Performance", "\U000F04C5", self._performance()),
-                                  ("Terminal", "\U000F018D", self._terminal())]:
+                                  ("Performance", "\U000F04C5", self._performance())]:
             self.stack.add_named(page, name)
             inner = box(False, 8, label(glyph, "icon"), label(name))
             inner.set_halign(Gtk.Align.CENTER)
@@ -1382,7 +1374,6 @@ class Dashboard(Popup):
     def show_tab(self, name):
         self.stack.set_visible_child_name(name)
         self._media_view()
-        self._keyboard()
         if name == "Performance" and hasattr(self, "q_disk_gauge"):
             self._update_disk()
             in_thread(read_gpu, self._on_gpu)
@@ -1629,57 +1620,11 @@ class Dashboard(Popup):
         self.q_disk_text.set_text(f"{human(used)} / {human(total)}")
         self.q_disk_name.set_text(self.disk)
 
-    def _terminal(self):
-        if Vte is None:
-            return box(True, 8, label("\U000F018D", "huge", "faint"),
-                       label("the terminal needs vte3:  sudo pacman -S vte3", "dim"), cls="term")
-        self.term = term = Vte.Terminal()
-        term.set_font(Pango.FontDescription(f"{FONT} 11"))
-        palette = ["#171c1f", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#a89984",
-                   "#928374", "#fb4934", "#b8bb26", "#fabd2f", "#83a598", "#d3869b", "#8ec07c", "#ebdbb2"]
-        colors = []
-        for c in palette:
-            g = Gdk.RGBA()
-            g.parse(c)
-            colors.append(g)
-        fg, bg = Gdk.RGBA(), Gdk.RGBA()
-        fg.parse(FG)
-        bg.parse(CARD)
-        bg.alpha = 0.0  # the card behind it shows through
-        term.set_colors(fg, bg, colors)
-        term.set_cursor_blink_mode(Vte.CursorBlinkMode.ON)
-        term.set_size(80, 8)  # vte asks for 24 rows by default, which would make the whole panel tall
-        term.set_size_request(-1, 180)
-        term.connect("child-exited", lambda *_: self._spawn_shell())
-        self._spawn_shell()
-        page = box(False, 0, cls="term")
-        page.pack_start(term, True, True, 0)
-        return page
-
-    def _spawn_shell(self):
-        shell = os.environ.get("SHELL", "/bin/sh")
-        self.term.spawn_async(Vte.PtyFlags.DEFAULT, os.path.expanduser("~"), [shell], None,
-                              GLib.SpawnFlags.DEFAULT, None, None, -1, None, None, None)
-
-    def _keyboard(self):
-        """the terminal tab takes the keyboard while it is on screen"""
-        want = (self.is_open and Vte is not None and self.stack.get_visible_child_name() == "Terminal")
-        seat = Gdk.Display.get_default().get_default_seat()
-        if want and not self.grabbed and self.get_window():
-            ok = seat.grab(self.get_window(), Gdk.SeatCapabilities.KEYBOARD, False, None, None, None, None)
-            self.grabbed = ok == Gdk.GrabStatus.SUCCESS
-            self.term.grab_focus()
-        elif not want and self.grabbed:
-            seat.ungrab()
-            self.grabbed = False
-        self.GRACE = 1200 if want else Popup.GRACE  # more forgiving while typing
-
     # updates ------------------------------------------------------------------
 
     def on_open(self):
         self.is_open = True
         self._media_view()
-        GLib.idle_add(lambda: self._keyboard() or False)  # once the window is on screen
         self.cal.reset()
         self._tick()
         self.timers = [GLib.timeout_add(1000, self._tick)]
@@ -1693,7 +1638,6 @@ class Dashboard(Popup):
     def on_close(self):
         self.is_open = False
         self._media_view()
-        self._keyboard()
         for t in self.timers:
             GLib.source_remove(t)
         self.timers = []
