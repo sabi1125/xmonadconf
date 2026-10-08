@@ -1134,7 +1134,11 @@ noise_reduction = 60
 
 
 class ArtProgress(Art):
-    """round album art inside a ring that fills as the song plays. click the ring to seek"""
+    """round album art inside an open ring (70% of a circle, gap at the bottom)
+    that fills as the song plays. click the ring to seek"""
+
+    SWEEP = 0.7 * 2 * math.pi
+    START = math.pi / 2 + (2 * math.pi - SWEEP) / 2  # bottom-left end of the ring
 
     def __init__(self, size, art, on_seek):
         super().__init__(art)
@@ -1156,18 +1160,19 @@ class ArtProgress(Art):
         dx, dy = ev.x - c, ev.y - c
         if math.hypot(dx, dy) < self.art_size / 2:
             return  # clicks on the art itself do nothing
-        angle = (math.atan2(dy, dx) + math.pi / 2) % (2 * math.pi)  # 0 at the top, clockwise
-        self.on_seek(angle / (2 * math.pi))
+        along = (math.atan2(dy, dx) - self.START) % (2 * math.pi)  # clockwise from the start
+        if along <= self.SWEEP:
+            self.on_seek(along / self.SWEEP)  # clicks in the gap do nothing
 
     def _draw(self, w, cr):
         c = self.box_size / 2
         r = (self.box_size + self.art_size) / 4  # halfway between the art and the edge
-        start = -math.pi / 2
-        end = start + 2 * math.pi * self.frac
+        start = self.START
+        end = start + self.SWEEP * self.frac
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.set_line_width(4)
-        cr.set_source_rgba(*rgba(CARD_HI))
-        cr.arc(c, c, r, 0, 2 * math.pi)
+        cr.set_source_rgba(*rgba(DIM, 0.25))  # the track still to come
+        cr.arc(c, c, r, start, start + self.SWEEP)
         cr.stroke()
         if self.frac > 0.002:
             cr.set_source_rgba(*rgba(ACCENT))
