@@ -431,28 +431,91 @@ class Corner(Surface):
 
 
 class Popup(Surface):
-    """a panel that slides out of the frame and hides once the pointer has been
+    """a panel that grows out of the frame and hides once the pointer has been
     away from it for a moment. while open it checks the pointer a few times a
-    second; crossing events are unreliable for windows mapped under the pointer."""
+    second; crossing events are unreliable for windows mapped under the pointer.
+
+    it animates itself rather than letting picom slide the window: the window
+    holds still, so the stretch of frame it paints never moves, and the panel is
+    revealed out of the edge by reshaping the window a little every frame"""
 
     POLL = 100      # ms between pointer checks while open
     GRACE = 300     # ms the pointer may be away before the panel hides
+    SIDE = "top"    # the frame edge it grows out of
+    BAND = EDGE     # how much of that edge it paints (always shown, never animated)
+    OPEN_MS, CLOSE_MS = 220, 160
 
     def __init__(self, wmclass, rect, keep_open=lambda x, y: False):
+        self.reveal = 1.0  # 0 = only the band, 1 = all of it
         super().__init__(wmclass, rect, popup=True)
         self.keep_open = keep_open
         self.covers = []  # (frame piece, screen rect) this panel paints itself while open
         self.pinned = False   # opened from the keyboard: stays until the pointer visits and leaves
         self._timer = None
         self._away = 0
+        self._anim = None
+        self._target, self._done = 1.0, None
+
+    def _shape(self):
+        w, h = self.rect[2], self.rect[3]
+        img = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(img)
+        cr.set_source_rgba(1, 1, 1, 1)
+        self.paint(cr)
+        p = 1 - (1 - self.reveal) ** 3  # ease out
+        if p < 1:  # hide what has not come out of the edge yet
+            cr.set_operator(cairo.OPERATOR_CLEAR)
+            band = self.BAND
+            if self.SIDE == "top":
+                d = band + (h - band) * p
+                cr.rectangle(0, d, w, h - d)
+            elif self.SIDE == "bottom":
+                d = band + (h - band) * p
+                cr.rectangle(0, 0, w, h - d)
+            elif self.SIDE == "right":
+                d = band + (w - band) * p
+                cr.rectangle(0, 0, w - d, h)
+            else:
+                d = band + (w - band) * p
+                cr.rectangle(d, 0, w - d, h)
+            cr.fill()
+        self.shape_combine_region(Gdk.cairo_region_create_from_surface(img))
+
+    def _animate(self, target, done=None):
+        self._target, self._done = target, done
+        if not self._anim:
+            self._last = time.monotonic()
+            self._anim = GLib.timeout_add(15, self._step)
+
+    def _step(self):
+        now = time.monotonic()
+        dt, self._last = now - self._last, now
+        span = self.OPEN_MS if self._target > self.reveal else self.CLOSE_MS
+        move = dt * 1000 / span
+        if abs(self._target - self.reveal) <= move:
+            self.reveal = self._target
+        else:
+            self.reveal += move if self._target > self.reveal else -move
+        self._shape()
+        if self.reveal == self._target:
+            self._anim = None
+            done, self._done = self._done, None
+            if done:
+                done()
+            return False
+        return True
 
     def open(self, pinned=False):
         self.pinned = pinned
         self._away = 0
         if not self.get_visible():
             self.on_open()
-            self._cut(True)
+            self.reveal = 0.0
+            self.realize()
+            self._shape()
             self.show_all()
+            self._cut(True)  # the band takes over from the frame right away
+        self._animate(1.0)
         self.get_window().raise_()
         if not self._timer:
             self._timer = GLib.timeout_add(self.POLL, self._poll)
@@ -461,18 +524,21 @@ class Popup(Surface):
         if self._timer:
             GLib.source_remove(self._timer)
             self._timer = None
-        if self.get_visible():
-            self.hide()
-            self.on_close()
-            # give the frame back once the slide-out animation is over
-            GLib.timeout_add(170, lambda: self.get_visible() or self._cut(False) or False)
+        if self.get_visible() and self._target != 0.0:
+            self._animate(0.0, self._closed)
+
+    def _closed(self):
+        self.hide()
+        self.on_close()
+        self._cut(False)  # only the band was showing, and it looks just like the frame
 
     def _cut(self, on):
         for piece, rect in self.covers:
             piece.set_hole(self, rect if on else None)
 
     def toggle(self):
-        self.close() if self.get_visible() else self.open(pinned=True)
+        closing = self._target == 0.0
+        self.close() if self.get_visible() and not closing else self.open(pinned=True)
 
     def on_open(self):
         pass
@@ -1936,6 +2002,8 @@ class Dashboard(Popup):
 class Volume(Popup):
     """the slider that peeks out of the right edge"""
 
+    SIDE = "right"
+
     W, H = 52, 240
 
     def __init__(self, screen, keep_open):
@@ -2008,6 +2076,8 @@ def volume_icon(level, muted):
 
 class Sidebar(Popup):
     """notifications on the right, session buttons hanging off its left edge"""
+
+    SIDE = "right"
 
     W = 380
     SESSION_W, SESSION_H = 66, 320
@@ -2229,6 +2299,7 @@ class WorkspacePeek(Popup):
 
     W = 344
     THUMB_W = 312
+    SIDE, BAND = "left", 0  # grows out of the bar, paints none of it
 
     def __init__(self, screen, keep_open, on_switch):
         sx, sy, sw, sh = screen
@@ -2364,6 +2435,7 @@ class WallpaperPicker(Popup):
     to set it (scripts/wallpaper.sh keeps it across restarts)"""
 
     TW, TH, ROWS = 208, 117, 2
+    SIDE = "bottom"
 
     def __init__(self, screen, keep_open):
         sx, sy, sw, sh = screen
